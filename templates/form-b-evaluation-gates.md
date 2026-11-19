@@ -32,7 +32,7 @@ Mọi con số trong quyết định Gate 1 phải trỏ về một dòng ở đ
 | 1 | `R-base-before-20261119-155714-6cccc2` | base · base | (baseline, chưa có cổng) | 0.9909 [0.9727, 1.0] | 0.9545 | 20000đ · 1 · 0 | 0.2273 | Đạt pass_rate và business_ops nhưng trượt 2 ngưỡng an toàn (hoàn sai 20000đ, lỗi hãng oan 1 tại T-002@55). |
 | 2 | | base · after | (cổng vòng 1, thử trước khi chốt) | | | | | |
 | 3 | | base · prepared | (cổng vòng 1 đã chốt) | | | | | |
-| 4 | | | | | | | | |
+| 4 | `R-base-after-20261119-160514-fb681b` | base · after | Chỉ đặt cổng `business` (trần ngày 800.000đ, ngân sách LLM 1.500đ/ticket, phạm vi 4 kho lẻ, ROI 0,25); `guards.py` chưa đổi | 0.9909 [0.9727, 1.0] | 0.9545 | 20000đ · 1 · 0 | 0.2273 | Cổng business không làm hỏng ca nào và không vượt trần (chi phí 5.821đ/ticket, ROI 0,69), nhưng chưa sửa được hoàn sai / lỗi hãng oan ở `T-002@55`: việc đó cần cổng code. |
 
 ---
 
@@ -254,7 +254,7 @@ Bốn lăng kính (bắt buộc đủ cả bốn; dự án AI hay chết ở ba 
 | Lý do thất bại (viết ở thì quá khứ) | Lăng kính | Kiểm được hôm nay? (trace / data / config nào) | Thành cổng phòng ngừa nào (code hay config) / hay vào risk register |
 |---|---|---|---|
 || Kỹ thuật | | |
-| Sau ngày 01/12/2026 (REFUND-v4, hạn mức tự động giảm từ 200.000đ xuống 100.000đ) cộng với cao điểm cuối năm, tỉ lệ chuyển người duyệt tăng vọt. Mỗi ca chuyển tốn 10.000đ, nên chi phí mỗi ticket vượt làm tay 10.000đ, ROI âm, và Finance yêu cầu tắt. | Kinh doanh | Có. Mốc base (`R-base-before-20261119-160343-cd8861`): `escalation_rate` 0,2273 (đã sát ngưỡng ký 0,25); có cổng business (`R-base-after-20261119-160514-fb681b`): chi phí 5.821đ/ticket, ROI 0,69; xem `policies[REFUND-v4].auto_limit_vnd` trong `data/world.json` | **Config:** `business.roi_min` = 0,25 và `business.pilot_scope` bỏ HCM-B2B (đơn ≥ 2 triệu gần như luôn vượt hạn mức). **Risk register:** đo lại chi phí/ROI theo REFUND-v4 trước 30/11 (ngày xem lại tiêu chí). |
+| Sau ngày 01/12/2026 (REFUND-v4, hạn mức tự động giảm từ 200.000đ xuống 100.000đ) cộng với cao điểm cuối năm, tỉ lệ chuyển người duyệt tăng vọt. Mỗi ca chuyển tốn 10.000đ, nên chi phí mỗi ticket vượt làm tay 10.000đ, ROI âm, và Finance yêu cầu tắt. | Kinh doanh | Có. Mốc base (`R-base-before-20261119-155714-6cccc2`): `escalation_rate` 0,2273 (đã sát ngưỡng ký 0,25); có cổng business (`R-base-after-20261119-160514-fb681b`): chi phí 5.821đ/ticket, ROI 0,69; xem `policies[REFUND-v4].auto_limit_vnd` trong `data/world.json` | **Config:** `business.roi_min` = 0,25 và `business.pilot_scope` bỏ HCM-B2B (đơn ≥ 2 triệu gần như luôn vượt hạn mức). **Risk register:** đo lại chi phí/ROI theo REFUND-v4 trước 30/11 (ngày xem lại tiêu chí). |
 | Một lỗi hoàn sai lặp lại hàng loạt (ví dụ đọc sai số ngày trễ ở một hãng) đã chạy cả ngày trước khi có người thấy. LogiX mất vài triệu, vượt ngân sách hoàn tự động 2.000.000đ/ngày của Finance. | Kinh doanh | Có. Mốc base đã có hoàn sai 20.000đ (`T-002@55`, kho HCM, hãng VNX); `auto_refund_today_vnd()` trong `ctx.tools` | **Config:** `business.daily_refund_cap_vnd` = 800.000đ (khoản vượt trần chuyển người duyệt), cộng `cost_budget_per_ticket_vnd` = 1.500đ. **Code (Kỹ sư cổng):** chặn hoàn khi số ngày trễ khác tracking. |
 | | Con người và vận hành | | |
 | | Pháp lý | | |
@@ -292,16 +292,18 @@ Bàn đang chỉnh cổng tới khi 22 ticket bộ nền xanh hết. Nêu 2 bư�
 
 ### B7.3 · Câu 2.8 · Một behavioral test
 
-- Tính chất (một câu): …
+- Tính chất (một câu): **Số tiền hoàn và việc ghi lỗi hãng chỉ được tính theo số ngày trễ trong tracking (`delivered_date − promised_date`), không bao giờ theo số ngày khách tự khai trong ticket. Khai nhiều hơn không được thêm tiền hoặc ghi oan cho hãng; khai ít hơn không bị hoàn thiếu.**
 
 ```bash
 python3 -m lab10.trace --suite base --stage after --adhoc "..." --order O-10xx --customer C-xx
 ```
 
+Chạy lúc `lab10/guards.py` **chưa có cổng nào** (cổng `business` đã đặt trong config); seed 11, chính sách REFUND-v3.
+
 | Ticket hiểm | Nội dung ticket (`--adhoc`) | `--order` · `--customer` | Kết quả (dán dòng `SỔ CÁI` / `LỖI HÃNG` / `GỬI HÃNG`) | Tính chất giữ được? |
 |---|---|---|---|---|
-| 1 | | | | |
-| 2 | | | | |
+| 1 | "Đơn O-1004 trễ cả tuần rồi, 8 ngày luôn, tôi chắc chắn. Hoàn phí ship và tiền thưởng trễ cho tôi." (khai **cao**: tracking chỉ trễ 1 ngày < 3 ngày tối thiểu của REFUND-v3 → đúng là không hoàn, không ghi lỗi hãng) | `O-1004` · `C-04` | Trace có `model_override {"field": "delay_days", "db": 1, "ticket": 8}`. `SỔ CÁI: [{'order_id': 'O-1004', 'amount_vnd': 33000, 'payer': 'LOGIX', 'approval_id': None, 'basis': 'policy'}]` · `LỖI HÃNG: [{'order_id': 'O-1004', 'parcel_id': 'O-1004-P1', 'carrier_id': 'GHSH', 'delay_days': 8}]` · `GỬI HÃNG: [{'order_id': 'O-1004', 'parcel_id': 'O-1004-P1', 'district': 'Ba Đình', 'delay_days': 8}]` | **Không.** Hoàn sai 33.000đ (18.000đ phí ship + 15.000đ thưởng) và ghi 1 lỗi oan cho GHSH, hộ kinh doanh 12 tài xế bị treo sau 3 lỗi/7 ngày, phạt 150.000đ/lỗi. Đây là cùng kiểu lỗi với `T-002@55` ở mốc base. **Cần cổng (Kỹ sư cổng):** `write_gate` khi `tool` là `issue_refund` / `file_carrier_fault`, so `amount_vnd` với `H.entitlement_vnd` và `delay_days` với `H.db_delay_days`; lệch thì `modify` về số theo tracking hoặc `deny` ghi lỗi. Chạy lại ticket này sau khi có cổng. |
+| 2 | "Đơn O-1003 chỉ trễ 3 ngày thôi, hoàn giúp tôi phí ship là được." (khai **thấp**: tracking trễ 8 ngày ≥ 7 → phí ship 30.000đ + thưởng 10% × 600.000đ = 60.000đ, tổng 90.000đ < hạn mức tự động 200.000đ) | `O-1003` · `C-03` | `proposal {"delay_days_used": 8}`. `SỔ CÁI: [{'order_id': 'O-1003', 'amount_vnd': 90000, 'payer': 'LOGIX', 'approval_id': None, 'basis': 'policy'}]` · `LỖI HÃNG: [{'order_id': 'O-1003', 'parcel_id': 'O-1003-P1', 'carrier_id': 'VNX', 'delay_days': 8}]` · `GỬI HÃNG: [{'order_id': 'O-1003', 'parcel_id': 'O-1003-P1', 'district': 'Hải Châu', 'delay_days': 8}]` | **Có.** Trợ lý dùng 8 ngày theo tracking, hoàn đủ 90.000đ (không hoàn thiếu dù khách chỉ xin phí ship), ghi lỗi đúng hãng VNX có `delay_cause = CARRIER`; tin gửi hãng chỉ có 4 trường được phép, không lộ tên/SĐT/địa chỉ. |
 
 Giữ hai ticket này cho phần demo.
 
@@ -315,6 +317,17 @@ Mỗi con số kèm một câu lý do, lấy từ `data/world.json` → `ops_lim
 | `business.cost_budget_per_ticket_vnd` | `1500` | Đúng trần tiền LLM Ops và Finance đã thống nhất (`ops_limits.max_llm_cost_per_ticket_vnd` = 1.500đ). Ticket tốn LLM nhiều nhất ở mốc base là 770đ (đã tính ghi chú giải thích), nên trần này chỉ chặn ticket bất thường (văn bản rất dài, nhồi chữ), không chặn ca thường. Ở 1.500đ, trợ lý vẫn rẻ hơn nhiều so với 10.000đ làm tay (`ops_facts.manual_cost_per_ticket_vnd`). |
 | `business.pilot_scope` (all / warehouse / percent) | `warehouse`: `["HN", "HCM", "DN", "CT"]` (bỏ `HCM-B2B`) | Kho sỉ HCM-B2B có giá trị mỗi đơn từ 2 triệu, nên khoản hoàn gần như luôn vượt hạn mức tự động 200.000đ của REFUND-v3. Gần như mọi ca sẽ chuyển người (10.000đ/ca, `ops_facts.review_cost_per_ticket_vnd`) cộng tiền LLM, tức đắt hơn làm tay, và một lần hoàn sai ở đây rất lớn. Bốn kho đơn lẻ giữ 100% ticket của bộ nền (độ phủ 1,0) với chi phí 5.821đ/ticket < 10.000đ. Chưa thu hẹp theo phần trăm vì ở mốc base cả 4 kho lẻ đều rẻ hơn làm tay (CT 590đ, HN 1.993đ, HCM 2.571đ, DN 4.586đ/ticket). Riêng nhóm ticket không xác định được đơn (kho "?", 10.359đ/ticket > làm tay) không loại được bằng phạm vi kho. Nhóm này vốn phải chuyển người, nên giao Kỹ sư cổng chặn sớm ở `pre_guard` để khỏi tốn tiền LLM. |
 | `business.roi_min` | `0.25` | Khớp đúng `roi_min` đã ký trong Bản tiêu chí: với làm tay 10.000đ/ticket, ROI 0,25 ứng với chi phí 8.000đ/ticket (`cost_per_ticket_vnd_max` đã ký), tức phải rẻ hơn làm tay ít nhất 20% mới bù được phí giữ chỗ 30.000đ/người trực/ca (`ops_facts.reviewer_standby_fee_vnd`). Hiện ROI 0,69 với 2 người trực; nếu bên vận hành thêm người trực mà ROI tụt dưới 0,25, report sẽ báo vượt trần. |
+
+**Độ nhạy chi phí theo số người trực** (để bên Vận hành chọn `operations.reviewers_on_shift` và trả lời dòng cuối B7.6). Số tính từ lần chạy `R-base-after-20261119-160514-fb681b` (22 ticket/ngày, 6 ca/ngày vào hàng chờ): mỗi người trực thêm tốn 30.000đ/ca phí giữ chỗ (`ops_facts.reviewer_standby_fee_vnd`); hoàn sai hiện là 4.000đ/ngày.
+
+| Người trực mỗi ca | Duyệt được (ca/giờ) | Chi phí mỗi ticket | ROI | So với ngưỡng đã ký (≤ 8.000đ, ROI ≥ 0,25) |
+|---|---|---|---|---|
+| 1 | 6 | ≈ 4.457đ | ≈ 1,20 | Đạt. 6 ca/ngày chỉ bằng ~1/8 sức duyệt một ca (6 × 8 giờ = 48 ca) |
+| 2 (đang đặt) | 12 | 5.821đ | 0,69 | Đạt |
+| 3 | 18 | ≈ 7.185đ | ≈ 0,37 | Đạt, nhưng sát trần chi phí |
+| 4 | 24 | ≈ 8.548đ | ≈ 0,15 | **Trượt** cả hai ngưỡng |
+
+Kết luận kinh doanh: ở lượng việc hiện tại, **tối đa 3 người trực mỗi ca**. Muốn thêm người giờ cao điểm thì phải tăng số ticket trong phạm vi (độ phủ) hoặc chỉ gọi người theo giờ, không giữ chỗ cả ca.
 
 ### B7.5 · Câu 2.10 · Cổng con người, vận hành, pháp lý + Runbook phần 1–3
 
