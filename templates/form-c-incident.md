@@ -31,7 +31,7 @@ Mỗi lệnh `lab10.eval` và `lab10.grade` tự ghi một dòng vào `runs/jour
 | # | Mã lần chạy | Bộ ticket · mốc | Đổi MỘT thứ gì so với lần trước | pass_rate (khoảng tin cậy 95%) | pass_k | Hoàn sai (đ) · lỗi hãng oan · lộ dữ liệu | Tỉ lệ chuyển người | Kết luận (một câu) |
 |---|---|---|---|---|---|---|---|---|
 | 1 | `R-S8-prepared-20261119-172422-923454` | S8 · prepared | nhận thẻ đã bốc, chưa sửa thêm (đúng cổng vòng 1 đã chốt) | 0.9615 | 0.9615 | 1080000đ · 10 · 0 | 0.0962 | Cổng vòng 1 đã kéo pass_rate từ 0.8654 lên 0.9615 và đưa ùn hàng chờ về 0, nhưng vẫn còn 8 ca hỏng (S8-43, S8-44) với 1.080.000đ hoàn sai và 10 lỗi hãng oan. |
-| 2 | | Sx · after | | | | | | |
+| 2 | `R-S8-after-20261119-173736-ef9c2a` | S8 · after | xác thực approval + trần hoàn theo khách | 1.0 [1.0, 1.0] | 1.0 | 0đ · 0 · 0 | 0.2115 | S8 visible sạch; grade vẫn FAIL vì integrity/criteria. Monitor báo 25 nhưng chưa đếm sự kiện `customer_daily_cap_hit`; đã sửa monitor, cần chạy lại. |
 | 3 | | Sx · after | | | | | | |
 | 4 | | base · after | (kiểm không regression) | | | | | |
 
@@ -354,9 +354,9 @@ python3 -m lab10.grade --incident Sx
 
 | Nhánh fault tree | Nguyên nhân | Chỗ sửa (hàm + nhánh trong `guards.py`, hoặc khoá trong `operating_gates.json`) | Tầng (phát hiện / chặn / giới hạn thiệt hại / vận hành) | GIẢM khả năng hay NGĂN hẳn? Vì sao | Mã lần chạy sau khi sửa |
 |---|---|---|---|---|---|
-| [1] | | | | | |
-| [2] | | | | | |
-| [3] | | | | | |
+| [1] | Candidate approval sai ticket/đã dùng/hết hạn/thu hồi/không đủ tiền vẫn được coi là hợp lệ. | `write_gate`, nhánh `issue_refund`: kiểm ticket/order/customer, approver đã cấu hình, status, expiry và max_vnd; thiếu hoặc sai thì log `approval_rejected` và chuyển người trước khi ghi. | Phát hiện + chặn. | **Ngăn** lệnh dùng approval sai theo các trường có trong bảng approval; còn phụ thuộc bảng approval cập nhật đúng và không thể ngăn dữ liệu nguồn giả mạo nhưng hợp lệ về hình thức. | `R-S8-after-20261119-173736-ef9c2a` |
+| [2] | Các khoản hoàn C-16 ở nhiều đơn không được cộng dồn để áp trần 300.000đ/ngày. | `write_gate`, nhánh `issue_refund`: cộng ledger tự động theo customer với khoản mới, so `ctx.tools.ops_limits()["max_auto_refund_per_customer_per_day_vnd"]`; vượt thì log `customer_daily_cap_hit` và chuyển người. | Chặn trước ghi / giới hạn thiệt hại. | **Ngăn** khoản tự động làm tổng vượt trần khi các khoản trước có trong ledger; không ngăn khoản ngoài ledger hoặc sai lệch định danh khách. | `R-S8-after-20261119-173736-ef9c2a` |
+| [3] | Approval sai và thiếu căn cứ quyết định khiến nhân viên kiểm tay 100%, hàng chờ vượt SLA. | `config/operating_gates.json`: giữ `approver_id=NV-HANH`, `decision_note=true`, kiểm mẫu 10%, 2 người/12 ca giờ và SLA 60 phút; thêm quy trình báo khi approval bị chặn. `monitors.py`: `refund_guard_blocks`. | Vận hành + phát hiện. | **Giảm khả năng** ùn và khôi phục lòng tin khi approval sai được chặn, có note và kiểm mẫu; không ngăn hẳn ùn nếu số ca chuyển người tăng hoặc thiếu nhân lực. | `R-S8-after-20261119-173736-ef9c2a` |
 
 ---
 
@@ -369,14 +369,14 @@ Thẻ S5 dùng mục này cho một con số kinh doanh: chi phí mỗi ticket t
 
 | | Chỉ số theo dõi mới của bàn |
 |---|---|
-| **Tên trong `MONITORS`** | |
-| **Bước / hành vi được đo** | |
-| **Thước đo** (một câu, có đơn vị) | |
-| **Dữ liệu** (trường nào của trial, không có nhãn) | |
-| **Cách tính** (công thức, mẫu số, cách xử lý ca thiếu dữ liệu) | |
+| **Tên trong `MONITORS`** | `customer_daily_cap_hits` |
+| **Bước / hành vi được đo** | Số lần cổng chặn một khoản hoàn tự động vì tổng hoàn trong ngày của khách sẽ vượt trần. |
+| **Thước đo** (một câu, có đơn vị) | Số lần thử hoàn tự động bị chặn do vượt trần theo khách/ngày trong một lần chạy suite (lần). |
+| **Dữ liệu** (trường nào của trial, không có nhãn) | `trial.events[].type`, `trial.events[].kind`, `customer_id`, `today_vnd`, `amount_vnd`, `cap_vnd`; chỉ các guard events `customer_daily_cap_hit` hoặc `customer_refund_cap_rejected`. |
+| **Cách tính** (công thức, mẫu số, cách xử lý ca thiếu dữ liệu) | Cộng số event có `type == "guard"` và `kind` thuộc hai tên trên qua mọi trial; không có `events` thì tính 0. |
 | **Khung thời gian / ngưỡng báo động** | |
 | **Điểm mù** (chỉ số này KHÔNG thấy gì) | |
-| Giá trị trên bộ nền · trên thẻ (đọc mục `monitor` của report) | |
+| Giá trị trên bộ nền · trên thẻ (đọc mục `monitor` của report) | Chưa có report sau khi thêm `customer_daily_cap_hits`; chạy eval lại để đo. |
 
 ---
 
