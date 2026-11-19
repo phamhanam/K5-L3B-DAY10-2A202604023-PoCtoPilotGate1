@@ -424,13 +424,14 @@ Ngoài ra, sự cố vận hành cần được theo dõi riêng: khi nhân viê
 
 <a id="c10"></a>
 
-## C10 · Câu 3.7 · Risk register (thêm ít nhất 1 dòng sau sự cố)
+## C10 – Câu 3.7: Risk register bổ sung sau sự cố
 
-| Rủi ro | Khả năng | Tác động | Người phụ trách (PIC, một người) | Dấu hiệu (metric nào, ngưỡng nào) | Xử lý | Ảnh hưởng bước đánh giá | Nhóm chức năng (GOVERN / MAP / MEASURE / MANAGE) |
+| Rủi ro | Khả năng | Tác động | Người phụ trách (PIC) | Dấu hiệu (metric và ngưỡng) | Xử lý | Ảnh hưởng bước đánh giá | Nhóm chức năng |
 |---|---|---|---|---|---|---|---|
-| | | | | | | | |
+| PII của người nhận tiếp tục bị gửi sang hãng vận chuyển do payload chứa thông tin lấy từ ticket hoặc hồ sơ đơn hàng | Cao nếu chưa triển khai allowlist và kiểm thử đầy đủ | Rất cao: ảnh hưởng người nhận không trực tiếp sử dụng trợ lý, phát sinh khiếu nại và rủi ro pháp lý | **NV-OANH – Phạm Kiều Oanh** | `pii_payload_rate > 0`; mục tiêu bằng 0. Bổ sung kiểm tra giá trị payload để phát hiện PII nằm trong chuỗi hoặc dữ liệu lồng nhau. | Chặn `notify_carrier`, ghi nhận sự cố, kiểm tra trace, loại bỏ trường ngoài allowlist; phối hợp Pháp chế và hãng vận chuyển xử lý dữ liệu đã gửi. | Chưa đủ điều kiện Go-live nếu còn phát hiện PII trong payload. | GOVERN / MAP / MEASURE / MANAGE |
+| Nhân viên vận hành mất niềm tin vào trợ lý, hàng chờ chuyển người vượt năng lực và ticket quá SLA 60 phút | Trung bình đến cao khi số ticket tăng hoặc tỷ lệ chuyển người cao | Cao: nhân viên xử lý ngoài quy trình, phản hồi khách chậm và pilot không ổn định | **NV-TUNG – Lê Thanh Tùng** | `report.ops.queue.wait_max_min > 30` phút: cảnh báo; đạt 60 phút: kích hoạt thu hẹp pilot. Theo dõi thêm `queue_stuck_rate`, `escalation_rate`. | Bố trí 2 người trực, năng lực 12 ca/giờ; gọi thêm người khi chờ trên 30 phút; đạt 60 phút thì thu hẹp phạm vi và chuyển ticket sang xử lý thủ công. | Không tiếp tục mở rộng pilot khi hàng chờ vượt ngưỡng hoặc nhân viên không thể duy trì SLA. | GOVERN / MEASURE / MANAGE |
 
-Quy tắc: **mỗi dòng phải đổi được một quyết định.** Cột "Dấu hiệu" phải là một metric có trong `monitors.py` hoặc trong report.
+**Ghi chú:** Các ngưỡng 30 phút, 60 phút, 2 người trực và 12 ca/giờ là ngưỡng vận hành đề xuất theo phương án của nhóm. Cần kiểm tra lại bằng report và cấu hình thực tế trước khi xác nhận đã triển khai.
 
 ---
 
