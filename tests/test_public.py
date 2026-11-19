@@ -10,7 +10,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lab10 import SEEDS, helpers as H, ops  # noqa: E402
 from lab10.eval import run_suite, summarize  # noqa: E402
-from lab10.tools import Verdict  # noqa: E402
+from lab10.tools import Ctx, ReadTools, Verdict  # noqa: E402
 from lab10.world import load_suite  # noqa: E402
 
 
@@ -54,6 +54,29 @@ class TestBase(unittest.TestCase):
     def test_verdict_api(self):
         self.assertEqual(Verdict.modify("x", amount_vnd=1).changes, {"amount_vnd": 1})
         self.assertEqual(Verdict.escalate("x").action, "escalate")
+
+    def test_pre_guard_pins_effective_policy(self):
+        ticket = next(t for t in self.tickets if t["ticket_id"] == "T-001")
+        ctx = Ctx(ticket, 11, ReadTools(World(self.world)), {}, [], as_of=self.world["as_of"])
+        verdict = importlib.import_module("lab10.guards").pre_guard(ctx)
+        self.assertEqual(verdict.changes, {"policy_id": "REFUND-v3"})
+
+    def test_refund_gate_reconciles_untrusted_amount_with_db(self):
+        ticket = next(t for t in self.tickets if t["ticket_id"] == "T-002")
+        ctx = Ctx(ticket, 11, ReadTools(World(self.world)), {}, [], as_of=self.world["as_of"])
+        verdict = importlib.import_module("lab10.guards").write_gate(
+            ctx, {"tool": "issue_refund", "order_id": "O-1002", "amount_vnd": 50000,
+                  "payer": "MERCHANT", "basis": "fail_open"})
+        self.assertEqual(verdict.action, "modify")
+        self.assertEqual(verdict.changes, {"amount_vnd": 0, "payer": "LOGIX", "basis": "policy"})
+
+    def test_carrier_fault_gate_rejects_wrong_carrier(self):
+        ticket = next(t for t in self.tickets if t["ticket_id"] == "T-001")
+        ctx = Ctx(ticket, 11, ReadTools(World(self.world)), {}, [], as_of=self.world["as_of"])
+        verdict = importlib.import_module("lab10.guards").write_gate(
+            ctx, {"tool": "file_carrier_fault", "order_id": "O-1001",
+                  "parcel_id": "O-1001-P1", "carrier_id": "VNX", "delay_days": 4})
+        self.assertEqual(verdict.action, "deny")
 
     def test_denied_refund_is_not_announced_as_paid(self):
         """Cổng chặn lệnh hoàn tiền thì khách KHÔNG được báo là đã hoàn: sổ cái trống, tin nhắn nói yêu cầu bị từ chối."""
