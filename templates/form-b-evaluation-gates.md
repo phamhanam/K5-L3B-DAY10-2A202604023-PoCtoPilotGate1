@@ -146,6 +146,7 @@ sự thật về ngày giao · lệch khi điểm phát quét sót hoặc nhập
 
 <a id="b4"></a>
 
+
 ## B4 · Câu 2.4 · HAZOP vòng 1 trên tool của agent
 
 *Chỉ làm MỘT vòng, trên MỘT tool. Đây là HAZOP vòng 1; HAZOP của thẻ sự cố viết riêng ở Phiếu C mục C4, không ghi đè bảng này.*
@@ -165,15 +166,15 @@ mà cả bàn chưa nghĩ tới, không phải tả lại nhánh đã biết.
 **Câu hỏi dẫn dắt:** tool nào tạo ra hậu quả không đảo ngược? Mỗi tham số của tool đó lấy từ đâu (ticket, DB, model tự suy)?
 Với mỗi guideword: hậu quả cho ai, hiện có gì ngăn, cần thêm gate ở tầng nào (phát hiện / chặn / giới hạn thiệt hại)?
 
-Tool chọn phân tích: `________________` (gợi ý: `issue_refund`, `file_carrier_fault`, `notify_carrier`)
+Tool chọn phân tích: `issue_refund` (lệnh ghi không đảo ngược số tiền và làm phát sinh sổ cái)
 
 | Tham số / dòng dữ liệu | Guideword | Lệch cụ thể (viết bằng dữ kiện của lab) | Hậu quả, cho ai | Hiện có gì ngăn? | Gate đề xuất + tầng |
 |---|---|---|---|---|---|
-| | WRONG | | | | |
-| | INVALID | | | | |
-| | INCOMPLETE | | | | |
-| | PERTURBED | | | | |
-| | INCAPABLE | | | | |
+| `amount_vnd` | WRONG | `T-002@55`: amount 20.000đ do model dùng `claimed_delay_days: 5`, trong khi tracking ghi DB `2`; `H.entitlement_vnd` là 0. | LogiX/Shop mất 20.000đ oan; kế toán và chị Oanh phải đối soát; khách nhận được lợi chưa đủ điều kiện. | Base chỉ kiểm trần tổng tiền đơn, chưa so khớp quyền lợi theo DB; trace hiện có dòng `model_override`. | `write_gate`: phát hiện bằng đối chiếu `H.entitlement_vnd`; chặn `issue_refund` nếu amount khác quyền lợi hoặc bằng 0 (chặn), ghi sự kiện `wrong_refund_blocked` (phát hiện). |
+| `approval_id` / `payer` / chính sách | INVALID | Một lệnh yêu cầu số > `ops_limits` hoặc `payer: LOGIX` nhưng phê duyệt đã hết hạn/sai ticket, hoặc `effective_policy` không còn hiệu lực. Đây là nhánh chưa thấy trên trace. | Khách hoặc LogiX có thể bị trả sai; NV-HANH mất audit trail; Finance vượt thẩm quyền. | `approval_id: null` và `payer: LOGIX` trong T-002; hiện không có gate kiểm tra quyền duyệt ở base. | `pre_guard` ghim `effective_policy(policies, as_of)`; `write_gate` kiểm tra `lookup_approvals`, số dư/chủng loại phê duyệt và `payer` (chặn/escalate); log policy và approval_id. |
+| `order_id` / tracking kiện | INCOMPLETE | Ticket không nêu mã đơn hoặc mã kiện, trong khi đơn nhiều kiện; bảng base còn một kho `?`. Nếu `delivered_date` trống, hệ thống không đủ căn cứ tính ngày trễ. Đây là nhánh chưa thấy. | Hoàn nhầm hoặc từ chối oan; khách, shop và hãng chịu hậu quả; số ticket ở kho `?` có thể làm sai phân khúc. | Report ghi `coverage: 1.0` nhưng không chứng minh các ticket đã có đủ tracking; base không bắt buộc tách theo parcel. | `pre_guard`: nếu thiếu `order_id` hoặc không tìm được `ticket_parcel`, escalate thay vì ước đoán (chặn), nếu nhiều kiện thì bắt buộc `parcel_id`/kết quả duy nhất (phát hiện). |
+| `ticket_id` / `order_id` / `amount_vnd` | PERTURBED | Một ticket được retry hoặc tin rập/đầu ra cũ được gửi lại, dẫn đến hai lệnh `issue_refund` cho cùng một đơn. Đây là nhánh chưa có trên trace hiện tại. | Khách nhận lặp tiền; sổ cái LogiX hoặc shop bị ghi thừa, Oanh/Hành khó đối soát. | Base không có kiểm tra trùng trong `ledger_rows` trước khi ghi. | `write_gate` tra `ledger_rows(order_id, ticket_id)` và chặn lệnh trùng; giới hạn thiệt hại bằng kiểm tra tổng `auto_refund_today_vnd() + amount <= daily_refund_cap_vnd` (phát hiện/chặn). |
+| Kết quả tra cứu tracking/policy | INCAPABLE | `lookup_order`, `lookup_policies` hoặc tracking không trả lời/hết quota ngay giữa ticket; model tự điền 20.000đ thay vì escalate. | Dò sai làm hoàn sai hoặc trễ lâu; khách, tài khoản LogiX và nhóm vận hành đều chịu. | Base không có trạng thái sẵn sàng nguồn; report không nêu kiểm tra outage. | `pre_guard/write_gate` chuyển ticket sang người duyệt khi thiếu nguồn bất khả thi; không cho phép suy đoán thành số tiền (chặn), và giới hạn bằng `stop_condition` công nghệ (tính ca fail rồi dừng tool ghi). |
 
 Không bắt buộc điền đủ năm dòng. Bắt buộc: **ít nhất ba dòng, trong đó một dòng là nhánh bàn chưa thấy trên trace**.
 
@@ -188,14 +189,15 @@ Không bắt buộc điền đủ năm dòng. Bắt buộc: **ít nhất ba dòn
 
 | Thành phần | Guideword | Lệch cụ thể | Hậu quả, cho ai | Cổng đề xuất: code hay con số nào trong `config/operating_gates.json` |
 |---|---|---|---|---|
-| | | | | |
-| | | | | |
+| Người duyệt | INCAPABLE | Có 14 ca tới trong 1 giờ nhưng chỉ 1 người trực; theo cấu hình hiện có `reviewers_on_shift: 2`, capacity 12 ca/giờ, SLA 60 phút, 14 ca tạo backlog. | T3–T14 chờ; khách phản hồi chậm, ca cuối có thể vượt SLA; NV-HANH/Oanh chịu áp lực và thời điểm cao điểm mất kiểm soát. | Mỗi ca hiện có `escalation_rate: 0.2273` (5/22 ticket); cấu hình có SLA và điều kiện dừng nhưng chưa có hành động thu hẹp thực tế được đo. | `operations.reviewers_on_shift`, `review_capacity_per_hour`, `max_queue_wait_minutes`, `stop_conditions`: khi đợi > SLA hoặc hết ca chưa xử lý → thu hẹp pilot, gọi thêm người duyệt (vận hành). |
+| Ngân sách hoàn ngày | WRONG | Tổng `issue_refund` trong ngày đạt 155.000đ, nhưng `finance_daily_budget` là 2.000.000đ; nếu nhiều ticket trễ cùng seed hoặc trần bàn đặt chưa có, tổng có thể vượt 800.000đ hằng ngày. | Finance bị vượt trần, cash-out tăng; LogiX/chủ shop chịu; người duyệt mất khả năng giải thích. | Report có `auto_refund_day_max_vnd: 155000`, chưa có cổng `daily_refund_cap_vnd` đang chặn lệnh ghi. | `write_gate` cộng `amount_vnd` vào `auto_refund_today_vnd()`; chặn/escalate nếu vượt `business.daily_refund_cap_vnd: 800000` (giới hạn thiệt hại), và điều chỉnh `stop_conditions` theo tổng hoàn sai. |
+| Phạm vi pilot | INVALID | Kho ngoài danh sách 4 kho HN/HCM/DN/CT (ví dụ kho `?` hoặc kho mới) có ticket với `cost_per_ticket_vnd: 10359` > manual 10.000đ, nhưng pilot scope vẫn nhận lệnh ghi. | Chi phí cao hơn làm tay; khách nhận trải nghiệm nhất quán kém; NV-Tung duy trì pilot không hiệu quả. | Report phân đoạn ghi kho `?` 1.0 review và `worse_than_manual: true`; config pilot_scope đã giới hạn đúng 4 kho nhưng gate chưa tường minh. | `pre_guard`: chỉ cho qua nếu warehouse thuộc `business.pilot_scope.warehouses`; kho ngoài → thu hẹp/escalate (vận hành/giới hạn phạm vi). |
+| Dữ liệu gửi bên thứ ba | PERTURBED | `notify_carrier.payload.customer_note` sao chép chữ khách: khách tự ghi tên hoặc số điện thoại người khác, dù trường PII có thể không do LogiX viết. | Người bị nhắc tên/SĐT chịu lộ dữ liệu; hãng, LogiX và Người đứng tên pilot (NV-Hanh) có rủi ro pháp lý. | T-002 hiện không có PII trong payload; `operating_gates.legal.pii_fields_blocked_to_third_party` đã liệt kê 8 trường. | `write_gate` khi `tool == notify_carrier`: chỉ cho phép whitelist `order_id`, `parcel_id`, `district`, `delay_days`; loại `customer_note/name/phone/address...` trước gửi (chặn) và kích hoạt stop PII nếu phát hiện rò rỉ. |
 
 **Ví dụ mẫu (`issue_refund`, đừng chép):** tham số `amount_vnd` · WRONG · số tiền tính từ số ngày khách tự khai · LogiX mất
 tiền, hãng bị kéo theo một lỗi · hiện chỉ có trần "không vượt tổng tiền đơn" · cổng ghi so với quyền lợi tính từ DB (chặn).
 
 ---
-
 <a id="b5"></a>
 
 ## B5 · Câu 2.4 · Checklist go-live 9 nhóm việc, lần 1
