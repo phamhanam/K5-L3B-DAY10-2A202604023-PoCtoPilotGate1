@@ -246,19 +246,67 @@ Bắt buộc: ít nhất ba dòng, trong đó **một dòng là nhánh bàn chư
 
 <a id="c5"></a>
 
-## C5 · Câu 3.2, 3.3 · Specification và giả định môi trường
+## C5 – Câu 3.2, 3.3: Specification và giả định môi trường
 
-### Câu 3.2 · Một specification mà nếu bị vi phạm thì gây ra tác hại trên thẻ
+### Câu 3.2 – Specification
 
-Mỗi lệnh hoàn chỉ được ghi khi (a) số tiền đúng quyền lợi theo policy; nếu vượt `auto_limit_vnd` thì approval phải khớp ticket/order/customer, `approver_id=NV-HANH`, `status=valid`, chưa hết `expires_at`, `max_vnd >= amount_vnd` và chưa dùng; và (b) tổng hoàn tự động theo customer trong ngày không vượt `ops_limits.max_auto_refund_per_customer_per_day_vnd` (300.000đ), trừ khoản được người có thẩm quyền duyệt. Mọi lần bị chặn/chuyển người phải có decision note ghi rõ căn cứ.
+**Specification đề xuất:**
 
-Kiểm bằng gì (hàm trong `guards.py`, dòng report nào): `write_gate` trước `issue_refund`, đọc `lookup_approvals`, `ledger_rows` và `ops_limits`; report `wrongful_refund_vnd`, `wrongful_carrier_faults`, `review_rate`, `queue_stuck`. Mốc base: `wrongful_refund_vnd=6.845.000`, `wrongful_carrier_faults=35`, `review_rate=1.0`, `queue_stuck=36`.
+Mọi thông báo gửi sang hãng vận chuyển thông qua `notify_carrier` chỉ được chứa đúng các trường dữ liệu sau:
 
-### Câu 3.3 · Một giả định về môi trường mà người thiết kế đã ngầm tin, nhưng nhiều khả năng sai ngoài thực tế
+- `order_id`
+- `parcel_id`
+- `district`
+- `delay_days`
 
-Giả định (thứ nằm NGOÀI phần mềm): Bảng approval và ledger được Ops/Finance cập nhật đầy đủ, kịp thời, đúng đối tượng; nhân viên có năng lực duyệt mọi ca chuyển người trong SLA.
+Không được gửi các trường hoặc nội dung chứa thông tin cá nhân như:
 
-Vì sao có thể sai: S8 có approval đã dùng cho ticket cũ, hết hạn, bị thu hồi hoặc có `max_vnd` thấp hơn khoản chi; ngoài ra trưởng ca báo hơn 40 ca và report base có 36 ca ùn, chờ lâu nhất 216 phút > SLA 60 phút.
+- `name`
+- `phone`
+- `street`
+- `address`
+- `email`
+- `national_id`
+- `customer_note`
+- `recipient_contact`
+
+Payload phải được tạo từ dữ liệu có nguồn gốc xác định trong hệ thống, không sao chép trực tiếp nội dung ticket của khách hàng.
+
+Nếu payload chứa trường ngoài danh sách cho phép hoặc không xác định được nguồn dữ liệu, hệ thống phải từ chối lệnh gửi và ghi nhận sự kiện trong trace.
+
+**Điều kiện kiểm thử:**
+
+1. Payload chỉ chứa bốn trường được cho phép.
+2. Không có thông tin cá nhân của người nhận trong bất kỳ giá trị nào của payload.
+3. Nếu phát hiện trường ngoài allowlist, `notify_carrier` phải bị chặn.
+4. Nếu không xác định được đơn hàng hoặc kiện hàng tương ứng, không được tự động gửi thông báo.
+
+**Kiểm được bằng gì:**
+
+- `lab10/guards.py` → `_guard_notify_carrier(ctx, action)`.
+- `lab10/guards.py` → `write_gate(ctx, action)`.
+- `config/operating_gates.json` → `legal.pii_fields_blocked_to_third_party`.
+- `lab10/monitors.py` → `pii_payload_rate`.
+- Trace của `notify_carrier` và kiểm tra payload đầu ra.
+
+**Chỉ số mục tiêu:** `pii_payload_rate = 0`.
+
+Lưu ý: Monitor hiện tại chỉ nhận diện khóa `recipient_contact`, vì vậy cần kiểm tra bổ sung cả giá trị chuỗi, số điện thoại có định dạng khác nhau và dữ liệu lồng nhau. Không được chỉ dựa vào chỉ số này để kết luận toàn bộ payload không chứa PII.
+
+### Câu 3.3 – Giả định môi trường
+
+**Giả định:**
+
+Người thiết kế ngầm tin rằng thông tin cá nhân của người nhận chỉ xuất hiện khi khách hàng trực tiếp nhập vào ticket và có thể được phát hiện bằng cách tìm kiếm hoặc thay thế chuỗi thông tin đã biết.
+
+**Vì sao giả định có thể sai:**
+
+- Khách hàng có thể viết số điện thoại theo nhiều định dạng khác nhau, ví dụ `0987 654 321` thay vì `0987654321`.
+- Thông tin người nhận có thể đã tồn tại trong `orders[].recipient` dù khách hàng không hề nhập thông tin đó vào ticket.
+- Người nhận hàng có thể không phải người đặt hàng, không trực tiếp sử dụng trợ lý và không biết dữ liệu của mình đang được xử lý.
+- Hãng vận chuyển chỉ được nhận một số trường dữ liệu nhất định theo thỏa thuận, không phải toàn bộ thông tin có trong hồ sơ đơn hàng.
+
+**Kết luận:** Không thể dựa vào giả định rằng PII chỉ đến từ nội dung khách nhập. Cần kiểm soát ngay tại điểm dữ liệu rời hệ thống bằng allowlist, không phụ thuộc vào cách người dùng viết hoặc định dạng dữ liệu.
 
 ---
 
@@ -344,23 +392,43 @@ Thẻ S5 dùng mục này cho một con số kinh doanh: chi phí mỗi ticket t
 
 <a id="c9"></a>
 
-## C9 · Câu 3.7 · Fault tree SAU khi sửa (mã lần chạy: `__________`)
+## C9 – Câu 3.7: Fault tree SAU khi sửa
 
-Vẽ lại cây ở C6. Ở mỗi nhánh đã xử lý, thêm một nút `VÀ [gate … hỏng]` và ghi:
+**Sự kiện đỉnh:** Thông tin cá nhân của người nhận hàng bị gửi sang hãng vận chuyển, gây khiếu nại và rủi ro pháp lý cho LogiX.
 
+```text
+[ĐỈNH]
+Thông tin cá nhân của người nhận bị gửi sang hãng vận chuyển
+                         |
+                        HOẶC
+          _______________|________________
+         |               |                |
+       [1]              [2]              [3]
+ PII từ ticket     PII từ hồ sơ      Cấu hình hoặc
+ được đưa vào      đơn hàng được     đường gửi dữ liệu
+ payload           đưa vào payload   bị sai
+         |               |                |
+         V               V                V
+ Không chuẩn hóa   Không giới hạn    Allowlist không
+ định dạng dữ liệu trường được gửi   được thực thi
+         |               |                |
+         V               V                V
+ VÀ [Gate allowlist hỏng]       VÀ [Gate kiểm tra payload hỏng]
 ```
-[ĐỈNH] ______________________________
- └─ HOẶC
- ├─ [1] ______________ VÀ [gate ______ hỏng]
- ├─ [2] ______________ VÀ [gate ______ hỏng]
- └─ [3] ______________ (còn hở?)
-```
 
-| Nhánh | Gate (hàm trong `guards.py` / khoá config / metric trong `monitors.py`) | Tầng gate (phát hiện / chặn / giới hạn thiệt hại / vận hành) | Giảm hay ngăn? Vì sao | Nhánh còn hở |
+**Phân tích các nhánh sau khi sửa:**
+
+| Nhánh | Gate | Tầng gate | Giảm hay ngăn? Vì sao? | Nhánh còn hở |
 |---|---|---|---|---|
-| [1] | | | | |
-| [2] | | | | |
-| [3] | | | | |
+| [1] PII được trích xuất từ nội dung ticket rồi đưa vào payload | `write_gate` → `_guard_notify_carrier`; chỉ tạo payload từ allowlist, không sao chép nội dung tự do | Chặn | Có thể ngăn các trường ngoài danh sách được phép đi qua `notify_carrier`, kể cả khi khách viết số điện thoại theo định dạng khác. | PII có thể xuất hiện trong kênh gửi khác không đi qua `write_gate`. |
+| [2] PII được lấy từ `orders[].recipient` dù khách không nhập vào ticket | Allowlist gồm `order_id`, `parcel_id`, `district`, `delay_days`; không đưa `name`, `phone`, `street` vào payload | Chặn | Ngăn thông tin liên hệ từ hồ sơ đơn hàng được gửi sang hãng qua kênh này. | Nếu trường được phép bị sử dụng sai hoặc dữ liệu trong nguồn sự thật sai, vẫn cần kiểm tra bổ sung. |
+| [3] Cấu hình hoặc đường gửi dữ liệu bị sai, payload có trường ngoài phạm vi hợp đồng | `config/operating_gates.json` → `legal`; `write_gate` từ chối payload không hợp lệ; `pii_payload_rate` theo dõi đầu ra | Chặn + phát hiện | Allowlist kiểm soát trường dữ liệu trước khi gửi; monitor hỗ trợ phát hiện các trường hợp bất thường. | Kênh gửi ngoài hệ thống, thay đổi hợp đồng chưa cập nhật hoặc người vận hành tự gửi dữ liệu thủ công. |
+
+**Kết luận Fault tree:**
+
+Sau khi bổ sung allowlist ở tầng code, các nhánh gửi PII qua `notify_carrier` chỉ còn xảy ra nếu cổng kiểm tra bị bỏ qua hoặc hoạt động sai. Đây là biện pháp ngăn ở phạm vi tool đã kiểm soát, không phải cam kết tuyệt đối rằng mọi dữ liệu cá nhân trong toàn bộ hệ thống đều không thể bị lộ.
+
+Ngoài ra, sự cố vận hành cần được theo dõi riêng: khi nhân viên mất niềm tin, hàng chờ vượt năng lực và ticket tiến sát SLA, nhân viên có thể phải xử lý ngoài quy trình. Đây là rủi ro vận hành còn cần kiểm soát bằng Runbook và Risk register.
 
 ---
 
