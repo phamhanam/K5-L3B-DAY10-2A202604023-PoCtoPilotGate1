@@ -1,6 +1,6 @@
 # Phiếu C · Sự cố và quyết định v2 · Khối 3 (phút 125–200)
 
-**Bàn:** ______ · **Thẻ đã bốc:** ___ *(để trống tới phút 125; bốc số xong thì ghi đúng số đó, ví dụ `S3`. Lab Coach đối chiếu với sổ; lệnh tự kiểm tra in dòng này trong report.)*
+**Bàn:** K5-L3B-DAY10-2A202604023-PoCtoPilotGate1 · **Thẻ đã bốc:** S8
 
 Mở `incidents/Sx/card.md` của đúng số đã bốc. Các bước trên thẻ trỏ về đúng mục trong phiếu này. Mục C3 chỉ điền phần ứng với
 số thẻ của bàn; các phần khác để trống.
@@ -30,7 +30,7 @@ Mỗi lệnh `lab10.eval` và `lab10.grade` tự ghi một dòng vào `runs/jour
 
 | # | Mã lần chạy | Bộ ticket · mốc | Đổi MỘT thứ gì so với lần trước | pass_rate (khoảng tin cậy 95%) | pass_k | Hoàn sai (đ) · lỗi hãng oan · lộ dữ liệu | Tỉ lệ chuyển người | Kết luận (một câu) |
 |---|---|---|---|---|---|---|---|---|
-| 1 | | Sx · prepared | nhận thẻ đã bốc, chưa sửa thêm (đúng cổng vòng 1 đã chốt) | | | | | |
+| 1 | `R-S8-prepared-20261119-172422-923454` | S8 · prepared | nhận thẻ đã bốc, chưa sửa thêm (đúng cổng vòng 1 đã chốt) | 0.9615 | 0.9615 | 1080000đ · 10 · 0 | 0.0962 | Cổng vòng 1 đã kéo pass_rate từ 0.8654 lên 0.9615 và đưa ùn hàng chờ về 0, nhưng vẫn còn 8 ca hỏng (S8-43, S8-44) với 1.080.000đ hoàn sai và 10 lỗi hãng oan. |
 | 2 | | Sx · after | | | | | | |
 | 3 | | Sx · after | | | | | | |
 | 4 | | base · after | (kiểm không regression) | | | | | |
@@ -47,14 +47,14 @@ Chạy **trước khi sửa bất cứ thứ gì**:
 python3 -m lab10.grade --incident Sx
 ```
 
-- Mã lần chạy grade: `__________` · base: `__________` · prepared: `__________`
-- Cổng vòng 1 đỡ được ô / con số nào (so cột base với cột prepared): …
-- Khối kinh doanh và vận hành còn dòng nào vượt trần: …
+- Mã lần chạy grade: `R-S8-grade-20261119-172417-923454` · base: `R-S8-before-20261119-172421-923454` · prepared: `R-S8-prepared-20261119-172422-923454`
+- Cổng vòng 1 đỡ được ô / con số nào (so cột base với cột prepared): Trên gói S8 (`visible`), `pass_rate` tăng `0.8654 → 0.9615`, hoàn sai giảm `6.845.000đ → 1.080.000đ`, lỗi hãng oan giảm `35 → 10`; về vận hành, tỉ lệ kiểm tay giảm `100% → 10%`, ca bị ùn giảm `36 → 0`, thời gian chờ tối đa `216 phút → 0.0 phút`, ROI tăng `-2.45 → 0.85`.
+- Khối kinh doanh và vận hành còn dòng nào vượt trần: Không vượt trần kinh doanh/vận hành nào (`0` ca ùn, chi phí `3152đ ≤ 10000đ`, ROI `0.85`), nhưng vẫn chưa đạt 2 ngưỡng an toàn đã ký: `wrongful_refund_vnd = 1.080.000đ > 0` và `wrongful_carrier_faults = 10 > 0` (tại kho CT, hãng GHSH/LGX).
 
 **Mở lại pre-mortem (Phiếu B mục B6), viết bằng bút khác màu.** Với thẻ S1, S3, S4, S5 đây là một phần của phần riêng theo thẻ.
 
-- Sự cố trên thẻ thuộc lăng kính nào (kỹ thuật, kinh doanh, con người và vận hành, pháp lý)? …
-- Có nằm trong các lý do bàn đã viết không? Nếu có: cổng vòng 1 đã đỡ được bao nhiêu (đọc cột prepared trong report)? Nếu không: vì sao cả bàn không nghĩ tới? …
+- Sự cố trên thẻ thuộc lăng kính nào (kỹ thuật, kinh doanh, con người và vận hành, pháp lý)? Cả **Kỹ thuật** (dùng mã phê duyệt sai ticket/hết hạn/thu hồi/vượt hạn mức) và **Con người & vận hành** (trưởng ca đứng tên duyệt bị giải trình → mất lòng tin → kiểm tay 100% gây ùn 36 ca).
+- Có nằm trong các lý do bàn đã viết không? Nếu có: cổng vòng 1 đã đỡ được bao nhiêu (đọc cột prepared trong report)? Nếu không: vì sao cả bàn không nghĩ tới? Có nằm trong hướng rủi ro kiểm soát phê duyệt và vận hành: cổng vòng 1 (`guards_round1.py` + `operating_gates.round1.json`) đã đỡ được phần lớn ca (`pass_rate 0.8654 → 0.9615`, giải tỏa hoàn toàn hàng chờ 36 ca → 0), nhưng vẫn lọt nhánh `S8-43`, `S8-44` (1.080.000đ hoàn sai, 10 lỗi hãng oan).
 - Lý do còn thiếu, thêm bây giờ:
 
 | Lý do thất bại (viết ở thì quá khứ) | Lăng kính | Kiểm được bằng gì (trace / data / config nào) |
