@@ -258,7 +258,8 @@ Bốn lăng kính (bắt buộc đủ cả bốn; dự án AI hay chết ở ba 
 | Một lỗi hoàn sai lặp lại hàng loạt (ví dụ đọc sai số ngày trễ ở một hãng) đã chạy cả ngày trước khi có người thấy. LogiX mất vài triệu, vượt ngân sách hoàn tự động 2.000.000đ/ngày của Finance. | Kinh doanh | Có. Mốc base đã có hoàn sai 20.000đ (`T-002@55`, kho HCM, hãng VNX); `auto_refund_today_vnd()` trong `ctx.tools` | **Config:** `business.daily_refund_cap_vnd` = 800.000đ (khoản vượt trần chuyển người duyệt), cộng `cost_budget_per_ticket_vnd` = 1.500đ. **Code (Kỹ sư cổng):** chặn hoàn khi số ngày trễ khác tracking. |
 | | Con người và vận hành | | |
 | | Pháp lý | | |
-| | | | |
+| Nhân viên đã mất niềm tin vì quyết định tự động thiếu giải thích và hàng chờ dồn quá năng lực; ca chuyển người bị quá SLA 60 phút, nhân viên phải tự xử lý ngoài quy trình. | Con người và vận hành | `data/world.json` → `ops_facts` (mặc định 1 người, 6 ca/giờ), `staff_behavior.trust_conditions` (cần ghi chú, kiểm mẫu tối thiểu 10%, đúng người duyệt); report có thời gian chờ và `queue_stuck`. | Đặt `operations.approver_id` là `NV-HANH`, `decision_note: true`, `review_sampling_pct: 10`; dự trù 2 người trực, tối đa 12 ca/giờ, `max_queue_wait_minutes: 60`; thu hẹp pilot/gọi thêm người khi hàng chờ chạm ngưỡng, theo dõi `queue_stuck_rate`. |
+| Thông tin người nhận đã bị gửi sang hãng vận chuyển trong payload thông báo; người nhận không phải người dùng trợ lý nhưng bị lộ tên, số điện thoại hoặc địa chỉ. | Pháp lý | `data/world.json` có thông tin nhận hàng; kiểm payload/lệnh `notify_carrier` trong trace và đối chiếu `config/operating_gates.json` → `legal`. | Khai báo đầy đủ trường cấm gửi bên thứ ba (`recipient_contact`, `customer_note`, `name`, `phone`, `street`, `address`, `email`, `national_id`); làm sạch payload trước khi gửi, đặt `carrier_fault_requires_recorded_cause: true`; dừng `notify_carrier` nếu phát hiện lộ PII và theo dõi `pii_payload_rate`. |
 
 ---
 
