@@ -19,7 +19,17 @@ def escalation_rate(trials):
     return sum(t["status"] == "escalated" for t in trials) / max(1, len(trials))
 
 
+def refund_guard_blocks(trials):
+    watched = {"approval_rejected", "customer_refund_cap_rejected"}
+    return sum(
+        e.get("type") == "guard" and e.get("kind") in watched
+        for t in trials
+        for e in t.get("events", [])
+    )
+
+
 MONITORS = {
     "escalation_rate": escalation_rate,     # có sẵn; KHÔNG tính là metric mới của đội
+    "refund_guard_blocks": refund_guard_blocks,
 }
 STARTER_MONITORS = ("escalation_rate",)

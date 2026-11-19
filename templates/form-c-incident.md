@@ -279,14 +279,22 @@ thường biến một nhánh HOẶC thành VÀ: tác hại chỉ còn xảy ra 
 Ít nhất hai nhánh ở hai tầng khác nhau (kỹ thuật, kinh doanh, con người); mỗi lá có bằng chứng (ticket@seed, trường dữ liệu, hoặc một dòng của report).
 
 ```
-[ĐỈNH] CSKH mất niềm tin, kiểm tay mọi quyết định; trợ lý chậm và tốn hơn làm tay (cho ai: NV-HANH, ca CSKH, khách, LogiX/Finance; đo bằng: review_rate, queue_stuck, queue_wait_max_min, wrongful_refund_vnd)
- └─ HOẶC
- ├─ [1] Approval sai vẫn được dùng, hoàn và ghi lỗi hãng tầng: quyền hạn / hành động
- │ └─ vì: không xác thực ticket_id/status/max_vnd trước ghi bằng chứng: ticket S8-01@seed 11, A-2801 đã dùng cho T-OLD-2801
- ├─ [2] Tổng hoàn tự động cho một khách vượt trần ngày tầng: kinh doanh / hành động
- │ └─ vì: thiếu phép cộng ledger theo customer_id bằng chứng: ticket S8-43@seed 11, 282.000 + 104.000 = 386.000đ > 300.000đ
- └─ [3] Quy trình không đạt điều kiện lòng tin nên kiểm tay 100% tầng: vận hành
- └─ vì: base không có decision note, sampling 0% và approver_id trống; có approval sai bằng chứng: report base 52 ca/ngày vào hàng, 36 ca ùn, chờ max 216 phút, cost 11.225đ > 10.000đ/ticket
+[ĐỈNH] CSKH mất niềm tin, buộc kiểm tay mọi quyết định; pilot chậm và tốn hơn làm tay
+        (cho ai: NV-HANH, ca CSKH, khách, LogiX/Finance;
+         đo bằng: review_rate, queue_stuck, queue_wait_max_min, wrongful_refund_vnd)
+└─ HOẶC
+   ├─ [1] Approval sai vẫn được dùng, gây hoàn sai và ghi lỗi hãng oan
+   │      tầng: kỹ thuật / quyền hạn
+   │  └─ Bằng chứng: S8-01@11 dùng A-2801 cho S8-01 dù ticket_id=T-OLD-2801, status=used;
+   │     ledger ghi 230.000đ và fault ghi VNX.
+   ├─ [2] Hoàn tự động nối tiếp vượt trần theo khách/ngày
+   │      tầng: kinh doanh / hành động
+   │  └─ Bằng chứng: S8-43@11, C-16 đã nhận 282.000đ rồi ghi thêm 104.000đ
+   │     = 386.000đ > ops_limits 300.000đ; S8-44 đưa tổng lên 498.000đ.
+   └─ [3] Không đạt điều kiện tin cậy, nhân viên kiểm tay 100% và hàng chờ ùn
+          tầng: con người / vận hành
+      └─ Bằng chứng: report base: review_rate=1.0, queue_stuck=36,
+         queue_wait_max_min=216, cost_per_ticket_vnd=11.225đ > 10.000đ làm tay.
 ```
 
 | Lá | Specification bị vi phạm (phần mềm phải làm gì) | Giả định môi trường đã sai (thế giới ngoài phần mềm) |

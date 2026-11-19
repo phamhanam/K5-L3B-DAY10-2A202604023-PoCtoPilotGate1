@@ -48,23 +48,39 @@ def write_gate(ctx, action):
         policy = H.effective_policy(ctx.tools.lookup_policies(), ctx.as_of)
         if order is None or policy is None:
             return Verdict.escalate("thiếu đơn hàng hoặc chính sách hiệu lực để đối chiếu hoàn tiền")
+        if order["customer_id"] != ctx.ticket.get("customer_id"):
+            return Verdict.escalate("khách của ticket không trùng chủ đơn")
 
         parcel = H.ticket_parcel(order, ctx.ticket, ctx.as_of)
         delay = H.db_delay_days(parcel, ctx.as_of)
         amount = H.entitlement_vnd(policy, order, delay, parcel.get("delay_cause"))
-        if amount > policy["auto_limit_vnd"]:
-            approvals = ctx.tools.lookup_approvals(approval_id=action.get("approval_id"))
-            approved = any(
-                a.get("order_id") == order["order_id"]
-                and a.get("customer_id") == order["customer_id"]
-                and a.get("status") == "valid"
-                and (not a.get("ticket_id") or a["ticket_id"] == ctx.ticket["ticket_id"])
-                and H.d(a["expires_at"]) >= H.d(ctx.as_of)
-                and a.get("max_vnd", 0) >= amount
-                for a in approvals
-            )
-            if not approved:
-                return Verdict.escalate("khoản hoàn vượt hạn mức tự động, chưa có phê duyệt hợp lệ")
+        approval_id = action.get("approval_id")
+        expected_approver = ctx.gates.get("operations", {}).get("approver_id")
+        approvals = ctx.tools.lookup_approvals(approval_id=approval_id) if approval_id else []
+        approved = any(
+            a.get("ticket_id") == action.get("ticket_id") == ctx.ticket.get("ticket_id")
+            and a.get("order_id") == order["order_id"]
+            and a.get("customer_id") == order["customer_id"]
+            and (not expected_approver or a.get("approver_id") == expected_approver)
+            and a.get("status") == "valid"
+            and bool(a.get("expires_at"))
+            and H.d(a["expires_at"]) >= H.d(ctx.as_of)
+            and (a.get("max_vnd") or 0) >= amount
+            for a in approvals
+        )
+        if (amount > policy["auto_limit_vnd"] or approval_id) and not approved:
+            ctx.log("approval_rejected", approval_id=approval_id, order_id=order["order_id"],
+                    amount_vnd=amount)
+            return Verdict.escalate("không có phê duyệt hợp lệ cho đúng ticket, đơn, khách và số tiền")
+
+        customer_cap = ctx.tools.ops_limits().get("max_auto_refund_per_customer_per_day_vnd")
+        if amount > 0 and not approved and customer_cap is not None:
+            prior_auto = ctx.tools.ledger_rows(customer_id=order["customer_id"], approval_id=None)
+            today_auto_vnd = sum(row["amount_vnd"] for row in prior_auto)
+            if today_auto_vnd + amount > customer_cap:
+                ctx.log("customer_refund_cap_rejected", customer_id=order["customer_id"],
+                        prior_vnd=today_auto_vnd, requested_vnd=amount, cap_vnd=customer_cap)
+                return Verdict.escalate("vượt trần hoàn tự động theo khách trong ngày; cần người duyệt")
 
         changes = {}
         if action.get("amount_vnd") != amount:

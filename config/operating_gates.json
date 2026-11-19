@@ -16,6 +16,7 @@
       "Khi có 1 khoản hoàn sai thì tắt issue_refund",
       "Khi có 1 lỗi ghi oan cho hãng thì tắt file_carrier_fault",
       "Khi có 1 lần lộ dữ liệu cá nhân cho bên thứ ba thì tắt notify_carrier",
+      "Khi guard chặn approval không hợp lệ: không ghi, chuyển NV-HANH, báo NV-TUNG qua Ops-Oncall-CSKH và rà soát các ticket dùng cùng approval",
       "Khi có 1 ca bị ùn (chờ quá SLA 60 phút hoặc hết ca chưa tới lượt) thì thu hẹp pilot và gọi thêm người duyệt",
       "Khi hai sự kiện vàng liên tiếp hoặc một điều kiện dừng xảy ra hai lần thì báo PIC và dừng toàn bộ pilot"
     ],
