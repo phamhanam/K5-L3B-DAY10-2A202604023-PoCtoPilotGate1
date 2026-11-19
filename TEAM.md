@@ -24,20 +24,23 @@ Ghi `members` trong `submission/submission.json` theo dạng `"HoVaTen-MSSV"`, k
 
 Mỗi thành viên tự viết một mục bên dưới (chép mẫu, đổi tiêu đề thành họ tên không dấu và MSSV, ví dụ `## NguyenVanAn-20241234`).
 
-## HoVaTen-MSSV
+## NguyenAnhTu-2A202604088
 
 ### Phần việc phụ trách
 
-Vai trong bàn; câu nào của đề, mục nào của phiếu A/B/C, file nào (`lab10/guards.py`, `config/operating_gates.json`, …).
+Vận hành và pháp lý; cổng `operations` và `legal` trong `config/operating_gates.json`; Phiếu B mục B4–B5 và B7.5–B7.6; Phiếu C mục C11; gom bài nộp trong `submission/submission.json`.
 
 ### Đóng góp cụ thể
 
-...
+Thiết lập PIC và người duyệt: NV-TUNG phụ trách vận hành, NV-HANH phụ trách duyệt khoản vượt hạn mức. Đặt hai người trực, công suất 12 ca/giờ, SLA chờ tối đa 60 phút, bật ghi chú giải thích và kiểm mẫu 10%.
+Thiết lập điều kiện dừng cho hoàn sai, ghi oan hãng, lộ PII và hàng chờ; chặn dữ liệu người nhận gửi cho hãng và yêu cầu ghi đầy đủ nguyên nhân lỗi trước khi ghi lỗi hãng.
+Điền danh sách thành viên và tên repo vào `submission/submission.json`.
 
 ### Bằng chứng
 
-Mã commit, mã lần chạy (`runs/<mã>`), dòng trong phiếu.
+Commit và mã lần chạy sẽ được cập nhật sau khi hoàn tất các lệnh kiểm tra và chốt vòng.
 
 ### Exit ticket
 
-Một điều học được, một điều còn chưa chắc.
+Một điều học được: cổng vận hành và pháp lý cần gắn tên người, ngưỡng, kênh báo tin và quy trình dừng rõ ràng thay vì chỉ đặt trong code.
+Một điều còn chưa chắc: ngưỡng số người trực và tỉ lệ kiểm mẫu cần được đối chiếu dữ liệu pilot thật trước Bước đánh giá 2.
