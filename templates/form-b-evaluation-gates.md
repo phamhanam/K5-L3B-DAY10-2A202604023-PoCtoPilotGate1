@@ -236,6 +236,7 @@ Checklist go-live đã hoàn thành việc rà soát chất lượng, dữ liệ
 
 **Lưu ý:** PIC trong bảng là người được phân công theo vai trò đã có trong Runbook; nếu nhóm chưa xác nhận phân công thực tế thì cần xác nhận lại trước khi chốt checklist.
 
+---
 
 <a id="b6"></a>
 
