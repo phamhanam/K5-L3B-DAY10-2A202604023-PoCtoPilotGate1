@@ -1,7 +1,7 @@
 {
   "team": "K5-L3B-DAY10-2A202604023-PoCtoPilotGate1",
   "version": "1.0 (nối PRD v1.1 và eval card của Lab 9)",
-  "signed_by": "Sản phẩm và kinh doanh - <Họ và tên>",
+  "signed_by": "Nguyễn Ánh Dương - 2A202604087 (Sản phẩm và kinh doanh)",
   "gate": "Bước đánh giá 1 (kết thúc PoC)",
   "required": {
     "pass_rate_min": 0.92,
