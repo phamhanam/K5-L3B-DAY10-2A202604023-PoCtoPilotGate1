@@ -251,7 +251,7 @@ Bốn lăng kính (bắt buộc đủ cả bốn; dự án AI hay chết ở ba 
 
 | Lý do thất bại (viết ở thì quá khứ) | Lăng kính | Kiểm được hôm nay? (trace / data / config nào) | Thành cổng phòng ngừa nào (code hay config) / hay vào risk register |
 |---|---|---|---|
-| | Kỹ thuật | | |
+|| Kỹ thuật | | |
 | Sau ngày 01/12/2026 (REFUND-v4, hạn mức tự động giảm từ 200.000đ xuống 100.000đ) cộng với cao điểm cuối năm, tỉ lệ chuyển người duyệt tăng vọt. Mỗi ca chuyển tốn 10.000đ, nên chi phí mỗi ticket vượt làm tay 10.000đ, ROI âm, và Finance yêu cầu tắt. | Kinh doanh | Có. Mốc base (`R-base-before-20261119-160343-cd8861`): `escalation_rate` 0,2273 (đã sát ngưỡng ký 0,25); có cổng business (`R-base-after-20261119-160514-fb681b`): chi phí 5.821đ/ticket, ROI 0,69; xem `policies[REFUND-v4].auto_limit_vnd` trong `data/world.json` | **Config:** `business.roi_min` = 0,25 và `business.pilot_scope` bỏ HCM-B2B (đơn ≥ 2 triệu gần như luôn vượt hạn mức). **Risk register:** đo lại chi phí/ROI theo REFUND-v4 trước 30/11 (ngày xem lại tiêu chí). |
 | Một lỗi hoàn sai lặp lại hàng loạt (ví dụ đọc sai số ngày trễ ở một hãng) đã chạy cả ngày trước khi có người thấy. LogiX mất vài triệu, vượt ngân sách hoàn tự động 2.000.000đ/ngày của Finance. | Kinh doanh | Có. Mốc base đã có hoàn sai 20.000đ (`T-002@55`, kho HCM, hãng VNX); `auto_refund_today_vnd()` trong `ctx.tools` | **Config:** `business.daily_refund_cap_vnd` = 800.000đ (khoản vượt trần chuyển người duyệt), cộng `cost_budget_per_ticket_vnd` = 1.500đ. **Code (Kỹ sư cổng):** chặn hoàn khi số ngày trễ khác tracking. |
 | | Con người và vận hành | | |
