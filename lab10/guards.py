@@ -53,18 +53,36 @@ def write_gate(ctx, action):
         delay = H.db_delay_days(parcel, ctx.as_of)
         amount = H.entitlement_vnd(policy, order, delay, parcel.get("delay_cause"))
         if amount > policy["auto_limit_vnd"]:
-            approvals = ctx.tools.lookup_approvals(approval_id=action.get("approval_id"))
+            # Vòng 2 (S8): phê duyệt chỉ hợp lệ khi thoả ĐỦ 5 điều kiện của specification câu 3.2
+            approver = ((ctx.gates or {}).get("operations") or {}).get("approver_id")
+            approval_id = action.get("approval_id")
+            approvals = ctx.tools.lookup_approvals(approval_id=approval_id) if approval_id else []
             approved = any(
-                a.get("order_id") == order["order_id"]
+                a.get("ticket_id") == ctx.ticket["ticket_id"]          # (1) cấp cho đúng ticket này
+                and a.get("order_id") == order["order_id"]
                 and a.get("customer_id") == order["customer_id"]
-                and a.get("status") == "valid"
-                and (not a.get("ticket_id") or a["ticket_id"] == ctx.ticket["ticket_id"])
-                and H.d(a["expires_at"]) >= H.d(ctx.as_of)
-                and a.get("max_vnd", 0) >= amount
+                and a.get("status") == "valid"                         # (2) chưa dùng, chưa thu hồi
+                and H.d(a["expires_at"]) >= H.d(ctx.as_of)             # (3) chưa hết hạn
+                and a.get("max_vnd", 0) >= amount                      # (4) hạn mức đủ cho khoản chi
+                and (not approver or a.get("approver_id") == approver)  # (5) đúng người có thẩm quyền
                 for a in approvals
             )
             if not approved:
-                return Verdict.escalate("khoản hoàn vượt hạn mức tự động, chưa có phê duyệt hợp lệ")
+                ctx.log("approval_rejected", approval_id=approval_id, amount_vnd=amount)
+                return Verdict.escalate("khoản hoàn vượt hạn mức tự động, phê duyệt không hợp lệ cho ticket này "
+                                        "(sai ticket / hết hạn / đã dùng hoặc thu hồi / thiếu hạn mức / sai người duyệt)")
+
+        # Vòng 2 (S8): trần hoàn TỰ ĐỘNG cho một khách trong ngày (ops_limits đã thống nhất với Ops/Finance)
+        if amount <= policy["auto_limit_vnd"]:
+            cust_cap = ctx.tools.ops_limits().get("max_auto_refund_per_customer_per_day_vnd")
+            if cust_cap is not None:
+                today = sum(r.get("amount_vnd", 0)
+                            for r in ctx.tools.ledger_rows(customer_id=order["customer_id"])
+                            if not r.get("approval_id") and r.get("date", ctx.as_of) == ctx.as_of)
+                if today + amount > cust_cap:
+                    ctx.log("customer_daily_cap_hit", customer_id=order["customer_id"],
+                            today_vnd=today, amount_vnd=amount, cap_vnd=cust_cap)
+                    return Verdict.escalate("tổng hoàn tự động cho khách này trong ngày vượt trần, chuyển người duyệt")
 
         changes = {}
         if action.get("amount_vnd") != amount:

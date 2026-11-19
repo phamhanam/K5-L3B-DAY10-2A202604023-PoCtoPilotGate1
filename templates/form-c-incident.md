@@ -249,9 +249,29 @@ Bắt buộc: ít nhất ba dòng, trong đó **một dòng là nhánh bàn chư
 
 ### Câu 3.2 · Một specification mà nếu bị vi phạm thì gây ra tác hại trên thẻ
 
-Kiểm được bằng code hoặc bằng một con số trong report: …
+Kiểm được bằng code hoặc bằng một con số trong report: **Mọi lệnh `issue_refund` có số tiền vượt `auto_limit_vnd` của
+chính sách đang hiệu lực chỉ được ghi sổ khi gắn một `approval_id` thoả ĐỦ cả năm điều kiện, đối chiếu với bảng `approvals`
+tại thời điểm ghi:** (1) `ticket_id` của phê duyệt **trùng đúng** ticket đang xử lý (và `order_id`, `customer_id` trùng đơn và
+khách của ticket); (2) `status == "valid"` (không `used`, không `revoked`); (3) `expires_at ≥ as_of`; (4) `max_vnd ≥ amount_vnd`
+của chính khoản chi; (5) `approver_id` là người có thẩm quyền duyệt đứng tên (trưởng ca `NV-HANH`, khớp `operations.approver_id`).
+Thiếu một điều kiện → không ghi sổ, chuyển ticket cho người duyệt kèm lý do. **Số đo:** số khoản hoàn trên hạn mức dùng phê
+duyệt không hợp lệ = **0** ở mọi seed.
 
-Kiểm bằng gì (hàm trong `guards.py`, dòng report nào): …
+Vi phạm spec này chính là tác hại trên thẻ: trợ lý lấy `cands[0]` trong các phê duyệt cùng đơn/khách
+(sự kiện `approval_used`) nên đã ghi tên chị Hạnh lên khoản chi chị không duyệt — mã cấp cho ticket khác (`A-2801` cho
+`T-OLD-2801`, `A-2804` cho `T-OLD-2808`), mã hết hạn 10/11 (`A-2802`), mã chỉ tới 150.000đ mà chi 235.000đ (`A-2803`), mã đã
+thu hồi (`A-2806`). Đối chứng `A-2805` cho `S8-05` thoả cả năm điều kiện. Khi kiểm toán lộ ra, cả ca kiểm tay 100% quyết định
+→ hàng chờ > 40 ca, chi phí mỗi ticket cao hơn làm tay.
+
+Kiểm bằng gì (hàm trong `guards.py`, dòng report nào):
+- **Code:** `write_gate` nhánh `issue_refund`, khối `if amount > policy["auto_limit_vnd"]` trong `lab10/guards.py`: kiểm
+  đủ năm điều kiện (1)–(5); thiếu một điều kiện thì `Verdict.escalate` và ghi sự kiện `approval_rejected` vào trace. So với
+  cổng vòng 1, vòng 2 vá hai lỗ: bỏ ngoại lệ `not a.get("ticket_id") or ...` (cổng cũ cho qua phê duyệt không ghi ticket) và
+  thêm điều kiện `approver_id == operations.approver_id`.
+- **Report:** dòng `Niềm tin của nhân viên duyệt (after, gói nhìn thấy)` trong report `python3 -m lab10.grade --incident S8`
+  phải là **đạt** và **không còn** lý do "trong ngày vẫn có khoản hoàn dùng phê duyệt không hợp lệ" (hàm `_bad_approval_used`
+  trong `lab10/ops.py` kiểm đúng điều kiện (1)–(4) trên từng dòng sổ cái); kèm dòng "nhân viên kiểm lại quyết định tự động (%)"
+  phải giảm từ 100% về tỉ lệ kiểm mẫu `operations.review_sampling_pct` (≥ 10%).
 
 ### Câu 3.3 · Một giả định về môi trường mà người thiết kế đã ngầm tin, nhưng nhiều khả năng sai ngoài thực tế
 
