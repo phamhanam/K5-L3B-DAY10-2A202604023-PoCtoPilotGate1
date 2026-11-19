@@ -48,12 +48,12 @@ trợ lý có đang gây thiệt hại cho bên ngoài LogiX không; không có 
 
 | | Offline, cho MỘT bước (câu 1.3) | Telemetry production (câu 1.4) |
 |---|---|---|
-| **Bước / hành vi được đo** | | |
-| **Thước đo** (một câu, có đơn vị) | | |
-| **Dữ liệu** (lấy ở đâu, bao nhiêu, ai gán nhãn) | | |
-| **Cách tính** (công thức, mẫu số, cách xử lý ca thiếu dữ liệu) | | |
+| **Bước / hành vi được đo** | Ghi lỗi hãng (cụ thể là hãng vận chuyển chịu trách nhiệm) | |
+| **Thước đo** (một câu, có đơn vị) | Tỷ lệ lần chạy ghi lỗi hãng đúng cả đối tượng hãng và căn cứ nguyên nhân so với label chuẩn trên bộ đánh giá offline, tính bằng % | |
+| **Dữ liệu** (lấy ở đâu, bao nhiêu, ai gán nhãn) | Lấy bản ghi output của bước ghi lỗi hãng (bao gồm tên hãng, mã/loại nguyên nhân, quyết định lỗi hay không) và tracking data/đơn hàng trong trace/log của bộ đánh giá offline (như bộ nền 22 ticket × 5 seed hoặc tập test offline của repo); label đúng hay sai do người có thẩm quyền nghiệp vụ vận hành/đối soát gán dựa trên quy tắc và lịch sử tracking. | |
+| **Cách tính** (công thức, mẫu số, cách xử lý ca thiếu dữ liệu) | $$\text{Tỷ lệ ghi lỗi hãng đúng (\%)} = \frac{\text{Số ca có quyết định, hãng và nguyên nhân ghi lỗi khớp nhãn chuẩn}}{\text{Số ca có bước ghi lỗi hãng / có dữ liệu đối chiếu hợp lệ}} \times 100\%$$ Các ca không đi tới bước ghi lỗi hãng hoặc thiếu log/nhãn đối chiếu sẽ được tách riêng và loại khỏi mẫu số chính (không tính gộp làm sai nếu chưa tới bước đó).| |
 | **Khung thời gian / ngưỡng báo động** | (không áp dụng) | |
-| **Điểm mù** (thước đo này KHÔNG thấy gì) | | |
+| **Điểm mù** (thước đo này KHÔNG thấy gì) | Không phát hiện được trường hợp dữ liệu tracking/event gốc bị sai lệch hoặc thiếu update từ bên ngoài, và không phản ánh tác động tích lũy/chi phí phát sinh khi vận hành ở môi trường sản xuất thật. | |
 
 **Ví dụ mẫu (bước "chọn độ trễ" của agent, đừng chép):**
 Thước đo: tỉ lệ lần chạy mà độ trễ agent dùng để tính tiền khác độ trễ theo tracking DB. Dữ liệu: sự kiện `proposal.delay_days_used`
