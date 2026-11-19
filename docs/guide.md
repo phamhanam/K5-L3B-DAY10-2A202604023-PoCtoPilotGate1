@@ -460,6 +460,8 @@ Mỗi hàm trả về một trong các câu trả lời sau:
 
 Trong hàm, `ctx.ticket` là ticket gốc, `ctx.tools` cho phép tra đơn hàng, chính sách, phê duyệt, sổ cái, các trần đã thống nhất (`ops_limits()`), và `ctx.log("tên_sự_kiện", …)` ghi một dòng vào trace để chỉ số theo dõi đọc được. Hướng dẫn đầy đủ nằm ngay đầu file `lab10/guards.py` và `lab10/monitors.py`.
 
+Ví dụ cổng phòng ngừa: ghim chính sách đang có hiệu lực trước khi đọc ticket; đối chiếu số tiền hoàn, bên trả và phê duyệt với dữ liệu đơn/chính sách trước khi ghi; chỉ ghi lỗi hãng nếu đúng kiện, hãng, số ngày trễ và nguyên nhân được chính sách công nhận.
+
 Lưu ý thứ tự: trợ lý ghi tiền **trước**, ghi lỗi hãng **sau**. Nếu bạn chuyển người ở bước ghi lỗi hãng thì tiền đã nằm trong sổ cái rồi.
 
 Lưu ý về chuyển người: mỗi ca chuyển cho người đều vào hàng chờ và tốn công người. Cổng nào cũng "cho chắc thì chuyển người" sẽ làm hàng chờ ùn và chi phí tăng. Báo cáo đo cả hai.
