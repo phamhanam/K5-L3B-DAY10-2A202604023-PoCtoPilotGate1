@@ -11,7 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from lab10 import SEEDS, helpers as H, ops  # noqa: E402
 from lab10.eval import run_suite, summarize  # noqa: E402
 from lab10.tools import Ctx, ReadTools, Verdict  # noqa: E402
-from lab10.world import load_suite  # noqa: E402
+from lab10.world import World, load_suite  # noqa: E402
 
 
 class TestBase(unittest.TestCase):
