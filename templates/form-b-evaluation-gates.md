@@ -200,29 +200,42 @@ tiền, hãng bị kéo theo một lỗi · hiện chỉ có trần "không vư�
 ---
 <a id="b5"></a>
 
-## B5 · Câu 2.4 · Checklist go-live 9 nhóm việc, lần 1
 
-Checklist chín nhóm việc phải xong trước khi chạy thử thật. Bàn điền lần đầu ở đây, rồi cập nhật sau sự cố ở Phiếu C mục C11.
-Cột "Bằng chứng lấy từ đâu" trỏ tới mục bàn đã điền ở bước khác; không điền thêm phiếu nào chỉ để lấp cột này.
+## B5 · Câu 2.4 · Checklist go-live 9 nhóm việc – lần 1
 
-Trạng thái: **Xong** (có bằng chứng) · **Chưa** · **Không áp dụng** (ghi lý do). Bằng chứng là **mã lần chạy**, tên file / mục phiếu, hoặc số trong report.
-**Cột PIC bắt buộc:** mỗi dòng một người có tên (không ghi "cả bàn"). Dòng nào chưa có PIC thì coi như Chưa.
+Checklist go-live được rà soát dựa trên các bằng chứng đã có trong Phiếu B. Phân biệt rõ trạng thái **Xong** (có bằng chứng), **Chưa** (chưa đủ bằng chứng) và **Không áp dụng** (ghi rõ lý do).
 
-| # | Nhóm việc | Bằng chứng lấy từ đâu (đã có sẵn trong lab) | Mục cần kiểm tra | Trạng thái | Bằng chứng | PIC |
-|---|---|---|---|---|---|---|
-| 1 | Chất lượng | Report `lab10.eval` (mã lần chạy) + bảng soát lỗi (Phiếu B mục B2) | | | | |
-| 2 | Dữ liệu | Bản đồ dữ liệu (Phiếu B mục B3, câu 2.3): trường nào là nguồn sự thật, trường nào là bản sao | | | | |
-| 3 | Bảo mật | Một vòng HAZOP với guideword PERTURBED (Phiếu B mục B4): chữ nào đi vào model mà không do LogiX viết | | | | |
-| 4 | Quyền hạn | `config/switches.json` + guard trước lệnh ghi; thẻ S2, S8 có thêm mục mức kiểm soát (Phiếu C mục C3) | | | | |
-| 5 | Hiệu năng, hạ tầng | Đội tự ước tính; HAZOP guideword INCAPABLE: LLM không trả lời thì sao; số người duyệt và số ca mỗi giờ | | | | |
-| 6 | Chi phí | Khối "kinh doanh và vận hành" của report: chi phí mỗi ticket so với làm tay, ROI, tiền LLM ticket đắt nhất; `config/operating_gates.json` mục `business` | | | | |
-| 7 | Vận hành | Runbook (Phiếu B mục B7.5–B7.6) + `config/operating_gates.json` mục `operations` (PIC, người duyệt, số người trực, điều kiện dừng, kênh báo tin) + metric trong `monitors.py` | | | | |
-| 8 | Con người, pháp lý | Bên thứ ba (hãng, tài xế, shop, người nhận quà, người đứng tên duyệt); `config/operating_gates.json` mục `legal`; thẻ S6, S7, S8 có mục riêng ở Phiếu C mục C3 | | | | |
-| 9 | Quyết định | Câu tiêu chí (Phiếu A mục A4) + hash Bản tiêu chí đã ký + quyết định Gate 1 (Phiếu B mục B8, Phiếu C mục C12) | | | | |
+| # | Nhóm việc | Mục cần kiểm tra | Trạng thái | Bằng chứng | PIC |
+|---|---|---|---|---|---|
+| 1 | **Chất lượng** | Đã chạy đánh giá bộ `base`, xem `pass_rate`, `pass_k`, hoàn sai và lỗi hãng oan; đối chiếu lỗi `T-002@55` trong bảng soát lỗi B2. | **Xong** – đã kiểm tra, nhưng chưa đạt điều kiện an toàn | `R-base-before-20261119-155714-6cccc2`; `pass_rate = 0,9909`; `pass_k = 0,9545`; hoàn sai `20.000đ`; lỗi hãng oan `1`; Phiếu B – B2. | Nguyễn Ánh Dương |
+| 2 | **Dữ liệu** | Xác định nguồn sự thật và bản sao: tracking `parcels[].promised_date`, `delivered_date`, `delay_cause`; chính sách `policies`; `approvals`, `ledger`; không tin số ngày trễ khách tự ghi trong `ticket.text`. | **Xong** | Phiếu B – B3, câu 2.3: Bản đồ dữ liệu và ví dụ drift; `data/world.json`. | Phạm Kiều Oanh (NV-OANH) |
+| 3 | **Bảo mật** | Đã dùng HAZOP `PERTURBED` để xác định nguy cơ nội dung khách tự nhập bị đưa vào payload gửi hãng; xác định trường PII cần chặn. | **Xong** – đã phân tích rủi ro, chưa có bằng chứng kiểm thử payload thực tế | Phiếu B – B4: dòng `notify_carrier.payload.customer_note`; các trường cần chặn gồm `name`, `phone`, `address`, `email`, `national_id`... | Phạm Kiều Oanh (NV-OANH) |
+| 4 | **Quyền hạn** | Kiểm tra công tắc `issue_refund`, `file_carrier_fault`, `notify_carrier`, `send_reply`; xác nhận guard chạy trước lệnh ghi và có người được quyền bật/tắt. | **Chưa** | B1 và B7.5 có mô tả người giữ công tắc là NV-TUNG; B7.1 chưa có bảng kết quả các cổng `base · after`; chưa có bằng chứng kiểm tra `config/switches.json` và thẻ S2, S8 tại C3. | Lê Thanh Tùng (NV-TUNG) |
+| 5 | **Hiệu năng, hạ tầng** | Xem tình huống LLM không trả lời; có phương án chuyển người thay vì tự suy đoán. Đã ước tính 2 người duyệt, công suất 12 ca/giờ, SLA 60 phút. | **Xong** – có phân tích và ước tính, chưa có kiểm thử outage thực tế | Phiếu B – B4: HAZOP `INCAPABLE`; B7.5–B7.6: 2 người trực, 12 ca/giờ, chờ tối đa 60 phút. | Trần Thị Hạnh (NV-HANH) |
+| 6 | **Chi phí** | So sánh chi phí mỗi ticket với làm tay; kiểm tra ROI, tiền LLM ticket đắt nhất, trần hoàn/ngày và phạm vi pilot. | **Xong** | `R-base-after-20261119-160514-fb681b`: cost/ticket `5.821đ`, ROI `0,69`; LLM ticket đắt nhất `770đ`; làm tay `10.000đ`; B7.4: `daily_refund_cap_vnd = 800000`, `cost_budget_per_ticket_vnd = 1500`, `roi_min = 0.25`. | Nguyễn Ánh Dương |
+| 7 | **Vận hành** | Có PIC, người duyệt, số người trực, công suất, SLA, điều kiện dừng, kênh báo tin và metric theo dõi. | **Chưa** – Runbook đã có, nhưng chưa đủ bằng chứng xác nhận cấu hình và metric đã được triển khai/kiểm tra | Phiếu B – B7.5–B7.6: NV-TUNG là PIC; NV-HANH duyệt; 2 người/12 ca/giờ; SLA 60 phút; kênh `Ops-Oncall-CSKH`; metric `queue_stuck_rate`, `escalation_rate`. | Lê Thanh Tùng (NV-TUNG) |
+| 8 | **Con người, pháp lý** | Xác định bên thứ ba có thể chịu ảnh hưởng; kiểm tra dữ liệu gửi hãng; quy định người xử lý khiếu nại và điều kiện dừng khi lộ PII hoặc ghi lỗi hãng oan. | **Chưa** – đã xác định rủi ro và trường cấm, chưa có bằng chứng xác nhận cấu hình pháp lý và kiểm thử thực tế | B3: hãng, tài xế, shop, người nhận hàng; B6: trường PII cần chặn; B7.5: NV-OANH tiếp nhận khiếu nại; `legal.pii_fields_blocked_to_third_party` cần được kiểm tra trong config. | Phạm Kiều Oanh (NV-OANH) |
+| 9 | **Quyết định** | Đối chiếu tiêu chí đã ký ở A4, hash tiêu chí, kết quả `prepared` và quyết định Gate 1. | **Chưa** | B8 hiện chưa điền hash tiêu chí, mã lần chạy `base · prepared`, bằng chứng và quyết định Gate 1. | Nguyễn Ánh Dương |
 
-Ô "Chưa" có rủi ro cao → chuyển thành một dòng Risk register (Phiếu C mục C10).
+### Các việc cần xử lý trước khi Go-live
 
----
+Các dòng **Chưa** cần được đưa vào Risk register ở Phiếu C – C10, đặc biệt là:
+
+| Ưu tiên | Việc còn thiếu | Hướng xử lý |
+|---|---|---|
+| Cao | Quyền hạn | Kiểm tra `config/switches.json`, guard trước lệnh ghi và thử tình huống tắt từng tool. |
+| Cao | Vận hành | Đối chiếu Runbook với `config/operating_gates.json` và metric thực tế trong `monitors.py`. |
+| Cao | Con người, pháp lý | Kiểm tra payload `notify_carrier`, whitelist dữ liệu và các trường PII bị chặn; xác nhận vai trò NV-OANH. |
+| Cao | Quyết định | Chạy `base · prepared`, lưu mã lần chạy, hash tiêu chí và hoàn thành B8 trước khi quyết định Gate 1. |
+
+### Kết luận
+
+Checklist go-live đã hoàn thành việc rà soát chất lượng, dữ liệu, bảo mật, hiệu năng và chi phí dựa trên bằng chứng trong Phiếu B. Tuy nhiên, các mục quyền hạn, vận hành, con người – pháp lý và quyết định Gate 1 vẫn chưa đủ bằng chứng xác nhận hoàn tất.
+
+Đặc biệt, lần chạy baseline còn ghi nhận **20.000đ hoàn sai và 1 lỗi hãng oan tại `T-002@55`**, nên chưa đủ điều kiện kết luận hệ thống an toàn để Go-live. Các rủi ro chưa xử lý phải được chuyển vào Risk register tại Phiếu C – C10.
+
+**Lưu ý:** PIC trong bảng là người được phân công theo vai trò đã có trong Runbook; nếu nhóm chưa xác nhận phân công thực tế thì cần xác nhận lại trước khi chốt checklist.
+
 
 <a id="b6"></a>
 
