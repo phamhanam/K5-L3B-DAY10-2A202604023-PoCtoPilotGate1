@@ -164,3 +164,28 @@ Kỹ sư cổng; triển khai `pre_guard` và `write_gate` trong `lab10/guards.p
 
 Một điều học được: cổng phải kiểm tra nguồn dữ liệu có thẩm quyền ngay trước lệnh ghi; log và monitor cần dùng đúng loại sự kiện mà guard phát ra.
 Một điều còn chưa chắc: monitor mới cần được chạy lại trên bộ nền và S8 để xác nhận số đếm; grade cũng cần xử lý điều kiện integrity và chữ ký tiêu chí trước khi có thể kết luận đạt.
+
+
+### PhamHaNam_2A202604023
+
+**Phần việc phụ trách**
+- Vai trong bàn: **Kỹ sư cổng (Gate Engineer)**
+- Câu của đề & mục phiếu: 1.5 (Phiếu A mục A2, A3); Câu 2.1, 2.2, chốt v1 (Phiếu B mục B0–B2, B7, B8); Câu 3.0, mốc prepared, quyết định v2 cho thẻ **S8** (Phiếu C mục C0–C1, C7–C8, C12).
+- File phụ trách: `templates/form-a-criteria.md`, `templates/form-b-evaluation-gates.md`, `templates/form-c-incident.md`.
+
+**Đóng góp cụ thể**
+- Hoàn thành thiết kế offline metric cho bước ghi lỗi hãng (1.3) và giải thích kết quả khoảng tin cậy 95% (1.5) trong Phiếu A.
+- Chạy đánh giá mốc `base`, phân tích và lập bảng soát lỗi cho `T-002@55` (phát hiện `model_override` tin số ngày khách khai thay vì tracking DB).
+- Kéo thẻ sự cố `incidents/S8/`, chạy `lab10.grade --incident S8` ở mốc `prepared`, phân tích C0–C1 và hoàn thiện quyết định v2 ở mục C12.
+
+**Bằng chứng**
+- Commit `9f4f397` (`add 1.5`): Câu 1.5 · `templates/form-a-criteria.md` mục A3.
+- Commit `3a492c2` (`answer q2.1 2.2`): Câu 2.1 + 2.2 · `templates/form-b-evaluation-gates.md` mục B0–B2 · `runs/R-base-before-20261119-155714-6cccc2`.
+- Commit `87706e1` (`chốt cổng vòng 1, v1`): `lab10.checkpoint` + quyết định v1 · `lab10/guards_round1.py`, `config/operating_gates.round1.json`, `config/round1.lock`, `templates/form-b-evaluation-gates.md` mục B8 · `runs/R-base-prepared-20261119-170939-923454`.
+- Commit `1be3c4e` (`Nhận thẻ S8`): kéo đủ 4 file `incidents/S8/` · dòng `Thẻ đã bốc: S8` đầu `templates/form-c-incident.md`.
+- Commit `1e58fcd` (`finish q 3.0`): Câu 3.0 mốc `prepared` · `templates/form-c-incident.md` mục C0–C1 · `runs/R-S8-prepared-20261119-172422-923454` (từ `runs/R-S8-grade-20261119-172417-923454.json`).
+- Commit `e5c503c` (`add c12`): Quyết định v2 · `templates/form-c-incident.md` mục C12 · ba mốc `R-S8-before-20261119-172421-923454`, `R-S8-prepared-20261119-172422-923454`, `R-S8-after-20261119-173736-ef9c2a`.
+
+**Exit ticket**
+- **Một điều học được:** Chặn lỗi ở cổng cấp hệ thống (`write_gate`) dựa trên nguồn sự thật (DB, `approvals`, `ledger`) hiệu quả và chắc chắn hơn việc chỉnh prompt, nhưng vẫn cần ghép với quy trình vận hành (ghi chú quyết định, kiểm mẫu) thì con người mới tin và không kiểm tay 100%.
+- **Một điều còn chưa chắc:** Trên dữ liệu thật ngoài pilot, khi lượng ticket giờ cao điểm tăng đột biến hoặc bảng `approvals` bị cập nhật trễ, tỉ lệ kiểm lại của nhân viên CSKH có giữ được ở mức 10% như giả định hay không.
