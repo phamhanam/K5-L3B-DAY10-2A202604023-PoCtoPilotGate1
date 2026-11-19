@@ -246,19 +246,49 @@ Bắt buộc: ít nhất ba dòng, trong đó **một dòng là nhánh bàn chư
 
 <a id="c5"></a>
 
-## C5 · Câu 3.2, 3.3 · Specification và giả định môi trường
+## C5 – Câu 3.2, 3.3: Specification và giả định môi trường
 
-### Câu 3.2 · Một specification mà nếu bị vi phạm thì gây ra tác hại trên thẻ
+### Câu 3.2 – Specification
 
-Mỗi lệnh hoàn chỉ được ghi khi (a) số tiền đúng quyền lợi theo policy; nếu vượt `auto_limit_vnd` thì approval phải khớp ticket/order/customer, `approver_id=NV-HANH`, `status=valid`, chưa hết `expires_at`, `max_vnd >= amount_vnd` và chưa dùng; và (b) tổng hoàn tự động theo customer trong ngày không vượt `ops_limits.max_auto_refund_per_customer_per_day_vnd` (300.000đ), trừ khoản được người có thẩm quyền duyệt. Mọi lần bị chặn/chuyển người phải có decision note ghi rõ căn cứ.
 
-Kiểm bằng gì (hàm trong `guards.py`, dòng report nào): `write_gate` trước `issue_refund`, đọc `lookup_approvals`, `ledger_rows` và `ops_limits`; report `wrongful_refund_vnd`, `wrongful_carrier_faults`, `review_rate`, `queue_stuck`. Mốc base: `wrongful_refund_vnd=6.845.000`, `wrongful_carrier_faults=35`, `review_rate=1.0`, `queue_stuck=36`.
+Kiểm được bằng code hoặc bằng một con số trong report: **Mọi lệnh `issue_refund` có số tiền vượt `auto_limit_vnd` của
+chính sách đang hiệu lực chỉ được ghi sổ khi gắn một `approval_id` thoả ĐỦ cả năm điều kiện, đối chiếu với bảng `approvals`
+tại thời điểm ghi:** (1) `ticket_id` của phê duyệt **trùng đúng** ticket đang xử lý (và `order_id`, `customer_id` trùng đơn và
+khách của ticket); (2) `status == "valid"` (không `used`, không `revoked`); (3) `expires_at ≥ as_of`; (4) `max_vnd ≥ amount_vnd`
+của chính khoản chi; (5) `approver_id` là người có thẩm quyền duyệt đứng tên (trưởng ca `NV-HANH`, khớp `operations.approver_id`).
+Thiếu một điều kiện → không ghi sổ, chuyển ticket cho người duyệt kèm lý do. **Số đo:** số khoản hoàn trên hạn mức dùng phê
+duyệt không hợp lệ = **0** ở mọi seed.
 
-### Câu 3.3 · Một giả định về môi trường mà người thiết kế đã ngầm tin, nhưng nhiều khả năng sai ngoài thực tế
+Vi phạm spec này chính là tác hại trên thẻ: trợ lý lấy `cands[0]` trong các phê duyệt cùng đơn/khách
+(sự kiện `approval_used`) nên đã ghi tên chị Hạnh lên khoản chi chị không duyệt — mã cấp cho ticket khác (`A-2801` cho
+`T-OLD-2801`, `A-2804` cho `T-OLD-2808`), mã hết hạn 10/11 (`A-2802`), mã chỉ tới 150.000đ mà chi 235.000đ (`A-2803`), mã đã
+thu hồi (`A-2806`). Đối chứng `A-2805` cho `S8-05` thoả cả năm điều kiện. Khi kiểm toán lộ ra, cả ca kiểm tay 100% quyết định
+→ hàng chờ > 40 ca, chi phí mỗi ticket cao hơn làm tay.
 
-Giả định (thứ nằm NGOÀI phần mềm): Bảng approval và ledger được Ops/Finance cập nhật đầy đủ, kịp thời, đúng đối tượng; nhân viên có năng lực duyệt mọi ca chuyển người trong SLA.
+Kiểm bằng gì (hàm trong `guards.py`, dòng report nào):
+- **Code:** `write_gate` nhánh `issue_refund`, khối `if amount > policy["auto_limit_vnd"]` trong `lab10/guards.py`: kiểm
+  đủ năm điều kiện (1)–(5); thiếu một điều kiện thì `Verdict.escalate` và ghi sự kiện `approval_rejected` vào trace. So với
+  cổng vòng 1, vòng 2 vá hai lỗ: bỏ ngoại lệ `not a.get("ticket_id") or ...` (cổng cũ cho qua phê duyệt không ghi ticket) và
+  thêm điều kiện `approver_id == operations.approver_id`.
+- **Report:** dòng `Niềm tin của nhân viên duyệt (after, gói nhìn thấy)` trong report `python3 -m lab10.grade --incident S8`
+  phải là **đạt** và **không còn** lý do "trong ngày vẫn có khoản hoàn dùng phê duyệt không hợp lệ" (hàm `_bad_approval_used`
+  trong `lab10/ops.py` kiểm đúng điều kiện (1)–(4) trên từng dòng sổ cái); kèm dòng "nhân viên kiểm lại quyết định tự động (%)"
+  phải giảm từ 100% về tỉ lệ kiểm mẫu `operations.review_sampling_pct` (≥ 10%).
 
-Vì sao có thể sai: S8 có approval đã dùng cho ticket cũ, hết hạn, bị thu hồi hoặc có `max_vnd` thấp hơn khoản chi; ngoài ra trưởng ca báo hơn 40 ca và report base có 36 ca ùn, chờ lâu nhất 216 phút > SLA 60 phút.
+### Câu 3.3 – Giả định môi trường
+
+**Giả định:**
+
+Người thiết kế ngầm tin rằng thông tin cá nhân của người nhận chỉ xuất hiện khi khách hàng trực tiếp nhập vào ticket và có thể được phát hiện bằng cách tìm kiếm hoặc thay thế chuỗi thông tin đã biết.
+
+**Vì sao giả định có thể sai:**
+
+- Khách hàng có thể viết số điện thoại theo nhiều định dạng khác nhau, ví dụ `0987 654 321` thay vì `0987654321`.
+- Thông tin người nhận có thể đã tồn tại trong `orders[].recipient` dù khách hàng không hề nhập thông tin đó vào ticket.
+- Người nhận hàng có thể không phải người đặt hàng, không trực tiếp sử dụng trợ lý và không biết dữ liệu của mình đang được xử lý.
+- Hãng vận chuyển chỉ được nhận một số trường dữ liệu nhất định theo thỏa thuận, không phải toàn bộ thông tin có trong hồ sơ đơn hàng.
+
+**Kết luận:** Không thể dựa vào giả định rằng PII chỉ đến từ nội dung khách nhập. Cần kiểm soát ngay tại điểm dữ liệu rời hệ thống bằng allowlist, không phụ thuộc vào cách người dùng viết hoặc định dạng dữ liệu.
 
 ---
 
@@ -352,23 +382,43 @@ Thẻ S5 dùng mục này cho một con số kinh doanh: chi phí mỗi ticket t
 
 <a id="c9"></a>
 
-## C9 · Câu 3.7 · Fault tree SAU khi sửa (mã lần chạy: `__________`)
+## C9 – Câu 3.7: Fault tree SAU khi sửa
 
-Vẽ lại cây ở C6. Ở mỗi nhánh đã xử lý, thêm một nút `VÀ [gate … hỏng]` và ghi:
+**Sự kiện đỉnh:** Thông tin cá nhân của người nhận hàng bị gửi sang hãng vận chuyển, gây khiếu nại và rủi ro pháp lý cho LogiX.
 
+```text
+[ĐỈNH]
+Thông tin cá nhân của người nhận bị gửi sang hãng vận chuyển
+                         |
+                        HOẶC
+          _______________|________________
+         |               |                |
+       [1]              [2]              [3]
+ PII từ ticket     PII từ hồ sơ      Cấu hình hoặc
+ được đưa vào      đơn hàng được     đường gửi dữ liệu
+ payload           đưa vào payload   bị sai
+         |               |                |
+         V               V                V
+ Không chuẩn hóa   Không giới hạn    Allowlist không
+ định dạng dữ liệu trường được gửi   được thực thi
+         |               |                |
+         V               V                V
+ VÀ [Gate allowlist hỏng]       VÀ [Gate kiểm tra payload hỏng]
 ```
-[ĐỈNH] ______________________________
- └─ HOẶC
- ├─ [1] ______________ VÀ [gate ______ hỏng]
- ├─ [2] ______________ VÀ [gate ______ hỏng]
- └─ [3] ______________ (còn hở?)
-```
 
-| Nhánh | Gate (hàm trong `guards.py` / khoá config / metric trong `monitors.py`) | Tầng gate (phát hiện / chặn / giới hạn thiệt hại / vận hành) | Giảm hay ngăn? Vì sao | Nhánh còn hở |
+**Phân tích các nhánh sau khi sửa:**
+
+| Nhánh | Gate | Tầng gate | Giảm hay ngăn? Vì sao? | Nhánh còn hở |
 |---|---|---|---|---|
-| [1] | | | | |
-| [2] | | | | |
-| [3] | | | | |
+| [1] PII được trích xuất từ nội dung ticket rồi đưa vào payload | `write_gate` → `_guard_notify_carrier`; chỉ tạo payload từ allowlist, không sao chép nội dung tự do | Chặn | Có thể ngăn các trường ngoài danh sách được phép đi qua `notify_carrier`, kể cả khi khách viết số điện thoại theo định dạng khác. | PII có thể xuất hiện trong kênh gửi khác không đi qua `write_gate`. |
+| [2] PII được lấy từ `orders[].recipient` dù khách không nhập vào ticket | Allowlist gồm `order_id`, `parcel_id`, `district`, `delay_days`; không đưa `name`, `phone`, `street` vào payload | Chặn | Ngăn thông tin liên hệ từ hồ sơ đơn hàng được gửi sang hãng qua kênh này. | Nếu trường được phép bị sử dụng sai hoặc dữ liệu trong nguồn sự thật sai, vẫn cần kiểm tra bổ sung. |
+| [3] Cấu hình hoặc đường gửi dữ liệu bị sai, payload có trường ngoài phạm vi hợp đồng | `config/operating_gates.json` → `legal`; `write_gate` từ chối payload không hợp lệ; `pii_payload_rate` theo dõi đầu ra | Chặn + phát hiện | Allowlist kiểm soát trường dữ liệu trước khi gửi; monitor hỗ trợ phát hiện các trường hợp bất thường. | Kênh gửi ngoài hệ thống, thay đổi hợp đồng chưa cập nhật hoặc người vận hành tự gửi dữ liệu thủ công. |
+
+**Kết luận Fault tree:**
+
+Sau khi bổ sung allowlist ở tầng code, các nhánh gửi PII qua `notify_carrier` chỉ còn xảy ra nếu cổng kiểm tra bị bỏ qua hoặc hoạt động sai. Đây là biện pháp ngăn ở phạm vi tool đã kiểm soát, không phải cam kết tuyệt đối rằng mọi dữ liệu cá nhân trong toàn bộ hệ thống đều không thể bị lộ.
+
+Ngoài ra, sự cố vận hành cần được theo dõi riêng: khi nhân viên mất niềm tin, hàng chờ vượt năng lực và ticket tiến sát SLA, nhân viên có thể phải xử lý ngoài quy trình. Đây là rủi ro vận hành còn cần kiểm soát bằng Runbook và Risk register.
 
 ---
 
@@ -386,36 +436,71 @@ Quy tắc: **mỗi dòng phải đổi được một quyết định.** Cột "
 
 <a id="c11"></a>
 
-## C11 · Câu 3.7 · Cập nhật checklist 9 nhóm việc và Runbook phần 4–5
+## C11 – Câu 3.7: Cập nhật checklist 9 nhóm việc và Runbook phần 4–5
 
-### Cập nhật checklist (bảng gốc ở Phiếu B mục B5)
+### 1. Cập nhật checklist 9 nhóm việc
 
-Ghi các dòng đổi sau sự cố. Mỗi dòng vẫn phải có một PIC có tên.
+Chỉ ghi những nhóm có thay đổi sau sự cố S7. Các trạng thái dưới đây phản ánh tình trạng cần hoàn tất kiểm thử; không tự coi biện pháp đề xuất là bằng chứng đã triển khai.
 
-| # nhóm | Trạng thái mới (Xong / Chưa / Không áp dụng) | Bằng chứng mới (mã lần chạy, mục phiếu, số trong report) | PIC |
+| # nhóm | Trạng thái mới | Bằng chứng mới / việc cần xác nhận | PIC |
 |---|---|---|---|
-| | | | |
-| | | | |
+| 1. Chất lượng | Chưa | Cần chạy lại `python3 -m lab10.grade --incident S7`, đối chiếu kết quả base, prepared và after; xác nhận không làm hỏng các ticket hợp lệ. | NV-TUNG |
+| 2. Dữ liệu | Xong về phân tích | Đã xác định nguồn PII trong `ticket.text` và `orders[].recipient`; cần kiểm tra việc tạo payload chỉ sử dụng các trường được phép. | NV-OANH |
+| 3. Bảo mật | Chưa | Cần kiểm thử `notify_carrier` với số điện thoại có dấu cách, tên, địa chỉ, PII trong chuỗi tự do và dữ liệu lồng nhau. | NV-OANH |
+| 4. Quyền hạn | Không áp dụng trực tiếp cho sự cố S7 | Không phải trọng tâm của thẻ S7; vẫn phải giữ các guard quyền hạn đã có ở vòng 1. | NV-TUNG |
+| 5. Hiệu năng, hạ tầng | Chưa | Cần kiểm thử khi lượng ticket tăng, người duyệt quá tải và nhà cung cấp LLM không phản hồi. | NV-TUNG |
+| 6. Chi phí | Chưa | Cần kiểm tra chi phí phát sinh khi tăng người trực và xử lý thủ công; đối chiếu ngân sách mỗi ticket và ROI. | NV-HANH |
+| 7. Vận hành | Chưa | Cập nhật `operations`: PIC, người duyệt, 2 người trực, năng lực 12 ca/giờ, SLA 60 phút, cảnh báo 30 phút, kênh báo sự cố. | NV-TUNG |
+| 8. Con người, pháp lý | Chưa | Hoàn thiện allowlist, danh sách trường PII bị chặn, quy trình thông báo sự cố và xử lý khiếu nại của người nhận hàng. | NV-OANH |
+| 9. Quyết định | Chưa | Chỉ chốt Gate 1 v2 sau khi có mã lần chạy after, report và bằng chứng các ngưỡng bắt buộc đạt. | NV-HANH |
 
-### Runbook 4 · Sau sự cố trên thẻ (vòng 2)
+### 2. Runbook 4 – Sau sự cố trên thẻ S7 (vòng 2)
 
 | Câu hỏi | Trả lời |
 |---|---|
-| Tín hiệu nào ở Runbook 2 (Phiếu B mục B7.5) lẽ ra phải báo trước sự cố này? Nó đã có chưa? | |
-| Bàn thêm hoặc đổi ngưỡng nào, từ bao nhiêu thành bao nhiêu? | |
-| Bàn đổi gì về **người** (số người trực, ai đứng tên, ai được gọi)? | |
-| Bàn đổi gì về **phạm vi** hoặc **quy trình** (kiểm mẫu, ghi chú giải thích, trần)? | |
-| Nói gì với bên thứ ba bị ảnh hưởng (hãng, shop, người nhận, nhân viên duyệt), ai nói, trong bao lâu? | |
-| Dữ liệu cá nhân nào đã rời hệ thống mà không thu hồi được? Báo cho ai? | |
-| Sự cố lộ ra trước qua số máy đo, phản hồi của người, hay đọc nội dung? Nguồn nào bàn chưa có? | |
+| Tín hiệu nào ở Runbook 2 lẽ ra phải báo trước sự cố này? Nó đã có chưa? | Cần theo dõi payload gửi hãng, `pii_payload_rate`, `queue_stuck_rate`, `escalation_rate` và phản hồi của người nhận hàng. Monitor PII hiện tại có thể bỏ sót thông tin nằm trong chuỗi tự do hoặc số điện thoại khác định dạng. |
+| Bàn thêm hoặc đổi ngưỡng nào, từ bao nhiêu thành bao nhiêu? | Thêm ngưỡng kiểm tra PII: `pii_payload_rate` phải bằng 0. Thời gian chờ trên 30 phút phải cảnh báo và gọi thêm người; đạt 60 phút phải thu hẹp pilot. |
+| Bàn đổi gì về người? | NV-TUNG là PIC vận hành và có quyền tắt trợ lý; NV-HANH là người duyệt. Bố trí 2 người trực, năng lực xử lý tổng cộng 12 ca/giờ. Khi quá tải, gọi thêm nhân sự dự phòng. |
+| Bàn đổi gì về phạm vi hoặc quy trình? | `notify_carrier` chỉ được gửi `order_id`, `parcel_id`, `district`, `delay_days`. Chặn `name`, `phone`, `street`, `address`, `email`, `national_id`, `customer_note`, `recipient_contact`. Bắt buộc có ghi chú giải thích quyết định và kiểm tra mẫu tối thiểu 10%. |
+| Nói gì với bên thứ ba bị ảnh hưởng, ai nói, trong bao lâu? | NV-OANH phối hợp Pháp chế xác định thông tin nào đã được gửi và hãng nào đã nhận. Thông báo cho người nhận bị ảnh hưởng theo quy trình của LogiX; yêu cầu hãng hạn chế truy cập, không tiếp tục sử dụng và xác nhận việc xử lý/xóa dữ liệu nếu có thể. Báo cáo nguyên nhân và biện pháp trong ngày theo yêu cầu trên thẻ S7. |
+| Dữ liệu cá nhân nào đã rời hệ thống mà không thu hồi được? Báo cho ai? | Có nguy cơ đã gửi họ tên, số điện thoại và địa chỉ người nhận. Một khi hãng hoặc nhân viên giao hàng đã đọc được thông tin, LogiX không thể khẳng định đã thu hồi hoàn toàn. Cần báo cho Pháp chế, người phụ trách bảo vệ dữ liệu và các bên liên quan để xử lý sự cố. |
+| Sự cố lộ ra trước qua số máy đo, phản hồi của người hay đọc nội dung? Nguồn nào bàn chưa có? | Sự cố được phát hiện trước qua phản ánh của người nhận hàng. Cần bổ sung giám sát payload gửi ra ngoài, cảnh báo khi có trường ngoài allowlist và quy trình tiếp nhận phản ánh từ bên thứ ba. |
 
-### Runbook 5 · Ba kịch bản "nếu … thì …" cho tuần đầu chạy thử thật
+### 3. Runbook 5 – Ba kịch bản nếu… thì… cho tuần đầu chạy thử thật
 
-1. Nếu số ticket tăng gấp ___ lần trong một giờ thì: …
-2. Nếu nhà cung cấp LLM lỗi quá ___ phút thì: …
-3. Nếu người duyệt báo không tin một quyết định của trợ lý thì: …
+**1. Nếu số ticket tăng gấp 2 lần trong một giờ thì:**
+
+- Kiểm tra `queue_wait_min`, `queue_stuck_rate` và `escalation_rate`.
+- Nếu thời gian chờ vượt 30 phút, NV-TUNG gọi thêm nhân sự hỗ trợ.
+- Duy trì tối thiểu 2 người trực với năng lực 12 ca/giờ.
+- Nếu thời gian chờ đạt 60 phút, thu hẹp phạm vi pilot, tạm dừng nhận ticket tự động ở nhóm quá tải và chuyển sang xử lý thủ công.
+- Ghi nhận số ticket tồn, thời gian chờ lớn nhất và số ticket quá SLA.
+
+**2. Nếu nhà cung cấp LLM lỗi quá 5 phút thì:**
+
+- Tạm dừng các quyết định tự động phụ thuộc vào LLM.
+- Không cho phép hệ thống tự tiếp tục lệnh ghi khi không xác nhận được kết quả.
+- Chuyển ticket sang hàng chờ người duyệt hoặc quy trình xử lý thủ công.
+- NV-TUNG kiểm tra trạng thái dịch vụ và thông báo cho nhóm vận hành.
+- Chỉ bật lại sau khi dịch vụ ổn định và đã kiểm tra không có lệnh hoàn hoặc thông báo hãng bị ghi trùng.
+
+**3. Nếu người duyệt báo không tin một quyết định của trợ lý thì:**
+
+- Tạm giữ quyết định đang bị nghi ngờ, không để trợ lý tự thực hiện lệnh ghi tiếp theo.
+- Chuyển ticket cho NV-HANH kiểm tra.
+- Đối chiếu ghi chú giải thích, dữ liệu nguồn, chính sách áp dụng và trace của quyết định.
+- Nếu phát hiện sai, sửa dữ liệu hoặc quy trình tại đúng tầng gây lỗi; ghi nhận sự kiện để theo dõi.
+- Kiểm tra mẫu tối thiểu 10% quyết định tự động. Chỉ giảm mức kiểm tra thủ công khi người duyệt xác nhận quyết định có thể giải thích và kiểm chứng được.
 
 ---
+
+## Ba dòng bắt buộc của Phiếu C
+
+1. **Một giả định về môi trường mà thiết kế của đội đang dựa vào, có thể sai ngoài thực tế:** Đội đang giả định thông tin cá nhân của người nhận chỉ xuất hiện khi khách hàng nhập vào ticket và có thể được phát hiện bằng cách so khớp chuỗi. Thực tế, thông tin có thể được lấy trực tiếp từ hồ sơ đơn hàng hoặc được viết theo định dạng khác nhau.
+
+2. **Gate của đội chỉ GIẢM khả năng hay thực sự NGĂN được tác hại? Vì sao:** Allowlist ở `write_gate` có thể NGĂN các trường ngoài danh sách được phép đi qua `notify_carrier`, nếu mọi lệnh gửi đều bắt buộc qua cổng này và payload chỉ được tạo từ các trường được duyệt. Tuy nhiên, gate không bảo đảm dữ liệu không bị lộ qua các kênh khác hoặc do bên nhận tiếp tục sử dụng sai mục đích.
+
+3. **Vì data là mock, cần đo lại gì trong pilot thật trước Bước đánh giá 2:** Cần đo tỷ lệ payload thực tế chứa PII, số khiếu nại từ người nhận hàng, số lần nhân viên phải tự xử lý ngoài quy trình, thời gian chờ lớn nhất, tỷ lệ ticket quá SLA 60 phút, năng lực xử lý thực tế của nhân viên, chi phí mỗi ticket và mức độ tin tưởng của nhân viên đối với quyết định của trợ lý.
 
 <a id="c12"></a>
 

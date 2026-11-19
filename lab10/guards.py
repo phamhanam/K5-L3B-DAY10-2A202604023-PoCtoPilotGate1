@@ -54,33 +54,37 @@ def write_gate(ctx, action):
         parcel = H.ticket_parcel(order, ctx.ticket, ctx.as_of)
         delay = H.db_delay_days(parcel, ctx.as_of)
         amount = H.entitlement_vnd(policy, order, delay, parcel.get("delay_cause"))
-        approval_id = action.get("approval_id")
-        expected_approver = ctx.gates.get("operations", {}).get("approver_id")
-        approvals = ctx.tools.lookup_approvals(approval_id=approval_id) if approval_id else []
-        approved = any(
-            a.get("ticket_id") == action.get("ticket_id") == ctx.ticket.get("ticket_id")
-            and a.get("order_id") == order["order_id"]
-            and a.get("customer_id") == order["customer_id"]
-            and (not expected_approver or a.get("approver_id") == expected_approver)
-            and a.get("status") == "valid"
-            and bool(a.get("expires_at"))
-            and H.d(a["expires_at"]) >= H.d(ctx.as_of)
-            and (a.get("max_vnd") or 0) >= amount
-            for a in approvals
-        )
-        if (amount > policy["auto_limit_vnd"] or approval_id) and not approved:
-            ctx.log("approval_rejected", approval_id=approval_id, order_id=order["order_id"],
-                    amount_vnd=amount)
-            return Verdict.escalate("không có phê duyệt hợp lệ cho đúng ticket, đơn, khách và số tiền")
+        if amount > policy["auto_limit_vnd"]:
+            # Vòng 2 (S8): phê duyệt chỉ hợp lệ khi thoả ĐỦ 5 điều kiện của specification câu 3.2
+            approver = ((ctx.gates or {}).get("operations") or {}).get("approver_id")
+            approval_id = action.get("approval_id")
+            approvals = ctx.tools.lookup_approvals(approval_id=approval_id) if approval_id else []
+            approved = any(
+                a.get("ticket_id") == ctx.ticket["ticket_id"]          # (1) cấp cho đúng ticket này
+                and a.get("order_id") == order["order_id"]
+                and a.get("customer_id") == order["customer_id"]
+                and a.get("status") == "valid"                         # (2) chưa dùng, chưa thu hồi
+                and H.d(a["expires_at"]) >= H.d(ctx.as_of)             # (3) chưa hết hạn
+                and a.get("max_vnd", 0) >= amount                      # (4) hạn mức đủ cho khoản chi
+                and (not approver or a.get("approver_id") == approver)  # (5) đúng người có thẩm quyền
+                for a in approvals
+            )
+            if not approved:
+                ctx.log("approval_rejected", approval_id=approval_id, amount_vnd=amount)
+                return Verdict.escalate("khoản hoàn vượt hạn mức tự động, phê duyệt không hợp lệ cho ticket này "
+                                        "(sai ticket / hết hạn / đã dùng hoặc thu hồi / thiếu hạn mức / sai người duyệt)")
 
-        customer_cap = ctx.tools.ops_limits().get("max_auto_refund_per_customer_per_day_vnd")
-        if amount > 0 and not approved and customer_cap is not None:
-            prior_auto = ctx.tools.ledger_rows(customer_id=order["customer_id"], approval_id=None)
-            today_auto_vnd = sum(row["amount_vnd"] for row in prior_auto)
-            if today_auto_vnd + amount > customer_cap:
-                ctx.log("customer_refund_cap_rejected", customer_id=order["customer_id"],
-                        prior_vnd=today_auto_vnd, requested_vnd=amount, cap_vnd=customer_cap)
-                return Verdict.escalate("vượt trần hoàn tự động theo khách trong ngày; cần người duyệt")
+        # Vòng 2 (S8): trần hoàn TỰ ĐỘNG cho một khách trong ngày (ops_limits đã thống nhất với Ops/Finance)
+        if amount <= policy["auto_limit_vnd"]:
+            cust_cap = ctx.tools.ops_limits().get("max_auto_refund_per_customer_per_day_vnd")
+            if cust_cap is not None:
+                today = sum(r.get("amount_vnd", 0)
+                            for r in ctx.tools.ledger_rows(customer_id=order["customer_id"])
+                            if not r.get("approval_id") and r.get("date", ctx.as_of) == ctx.as_of)
+                if today + amount > cust_cap:
+                    ctx.log("customer_daily_cap_hit", customer_id=order["customer_id"],
+                            today_vnd=today, amount_vnd=amount, cap_vnd=cust_cap)
+                    return Verdict.escalate("tổng hoàn tự động cho khách này trong ngày vượt trần, chuyển người duyệt")
 
         changes = {}
         if action.get("amount_vnd") != amount:
