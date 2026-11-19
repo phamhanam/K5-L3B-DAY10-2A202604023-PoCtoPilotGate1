@@ -26,8 +26,8 @@ rồi mới chạy đánh giá. Khối 1 không sửa code.
 
 ### Câu 1.2 · Mục tiêu nhìn từ hai người
 
-- Chị Oanh, kế toán đối soát (không dùng trợ lý, nhưng phải khớp sổ với hãng và shop mỗi tuần): …
-- Chị Hạnh, trưởng ca CSKH (phải duyệt những ca trợ lý chuyển sang): …
+- Chị Oanh, kế toán đối soát (không dùng trợ lý, nhưng phải khớp sổ với hãng và shop mỗi tuần): có sổ hoàn và sổ lỗi hãng đủ mã đơn, hãng, kiện và căn cứ tracking; cuối tuần đối soát khớp với hãng/shop, mọi sai lệch truy được về người duyệt và hồ sơ liên quan.
+- Chị Hạnh, trưởng ca CSKH (phải duyệt những ca trợ lý chuyển sang): nhận đúng ca cần duyệt, có lý do và căn cứ trong ghi chú quyết định; hàng chờ được xử lý trong SLA 60 phút với năng lực trực đã công bố, không phải duyệt lại từ đầu vì thiếu thông tin.
 
 ---
 
@@ -42,7 +42,6 @@ DỮ LIỆU nào, ở đâu, ai gán nhãn; TÍNH thế nào để hai người 
 - Thước đo này nói về MỘT bước của agent hay cả luồng? Nếu cả luồng hỏng, nó có chỉ ra bước nào hỏng không?
 - Dữ liệu đã có sẵn (trace, sổ cái) hay phải thu thêm? Nhãn đúng/sai đến từ đâu?
 - Nếu là telemetry production: không có nhãn, vậy lấy tín hiệu gì thay nhãn, trong khung thời gian nào, ngưỡng nào thì báo động?
-
 ### Câu 1.3 · Offline metric cho MỘT bước · Câu 1.4 · Telemetry production
 
 Câu 1.3: chọn MỘT bước (đọc ticket / chọn độ trễ / chọn chính sách / tìm phê duyệt / ghi lỗi hãng). Câu 1.4: tín hiệu cho biết
